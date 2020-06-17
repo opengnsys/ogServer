@@ -1,0 +1,11 @@
+*.m4
+Makefile
+Makefile.in
+config.log
+config.status
+configure
+autom4te.cache
+build-aux/
+*.o
+.deps/
+.dirstamp
