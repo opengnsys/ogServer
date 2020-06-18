@@ -45,4 +45,21 @@ void og_schedule_refresh(struct ev_loop *loop);
 void og_schedule_run(unsigned int task_id, unsigned int schedule_id,
 		     enum og_schedule_type type);
 
+int og_dbi_schedule_get(void);
+int og_dbi_update_action(uint32_t id, bool success);
+
+struct og_task {
+	uint32_t	task_id;
+	uint32_t	procedure_id;
+	uint32_t	command_id;
+	uint32_t	center_id;
+	uint32_t	schedule_id;
+	uint32_t	type_scope;
+	uint32_t	scope;
+	const char	*filtered_scope;
+	const char	*params;
+};
+
+int og_dbi_queue_procedure(struct og_dbi *dbi, struct og_task *task);
+
 #endif

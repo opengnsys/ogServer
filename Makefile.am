@@ -6,4 +6,7 @@ ogAdmServer_SOURCES= sources/ogAdmServer.c	\
 		     sources/dbi.c		\
 		     sources/schedule.c		\
 		     sources/utils.c		\
+		     sources/rest.c		\
+		     sources/client.c		\
+		     sources/json.c		\
 		     sources/ogAdmLib.c
