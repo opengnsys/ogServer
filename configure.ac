@@ -1,4 +1,4 @@
-AC_INIT(ogAdmServer, 1.1.1, opengnsys-devel@listas.unizar.es)
+AC_INIT(ogserver, 1.1.1, opengnsys-devel@listas.unizar.es)
 AC_CONFIG_AUX_DIR([build-aux])
 AC_PREFIX_DEFAULT(/opt/opengnsys)
 

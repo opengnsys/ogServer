@@ -1,4 +1,4 @@
-# ogAdmServer systemd service file
+# ogserver systemd service file
 
 [Unit]
 Documentation=https://opengnsys.es/trac/wiki/En%%3ADocumentacionUsuario
@@ -10,4 +10,4 @@ After=mysql.service
 WantedBy=multi-user.target
 
 [Service]
-ExecStart=/opt/opengnsys/sbin/ogAdmServer -f /opt/opengnsys/etc/ogAdmServer.cfg
+ExecStart=/opt/opengnsys/sbin/ogserver -f /opt/opengnsys/etc/ogserver.cfg

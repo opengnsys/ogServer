@@ -26,16 +26,16 @@ if os.getuid() is not 0:
     print('You need to be root to run these tests :-)')
     exit()
 
-if os.path.isfile('../ogAdmServer') is not True:
-    print('You need to build the ogAdmServer binary to run these tests :-)')
+if os.path.isfile('../ogserver') is not True:
+    print('You need to build the ogserver binary to run these tests :-)')
     exit()
 
 start_mysql();
 
-subprocess.Popen(['../ogAdmServer', '-f', 'config/ogAdmServer.cfg'])
+subprocess.Popen(['../ogserver', '-f', 'config/ogserver.cfg'])
 
 subprocess.run('python3 -m unittest discover -s units -v', shell=True)
 
 stop_mysql();
 
-subprocess.run(['pkill', 'ogAdmServer'])
+subprocess.run(['pkill', 'ogserver'])

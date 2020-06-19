@@ -41,8 +41,8 @@ BOOLEAN validacionParametros(int argc, char*argv[],int eje) {
 
 	switch(eje){
 		case 1: // Administrador
-			strcpy(szPathFileCfg, "ogAdmServer.cfg"); // Valores por defecto de archivos
-			strcpy(szPathFileLog, "ogAdmServer.log"); // de configuración y de logs
+			strcpy(szPathFileCfg, "ogserver.cfg"); // Valores por defecto de archivos
+			strcpy(szPathFileLog, "ogserver.log"); // de configuración y de logs
 			break;
 		case 2: // Repositorio
 			strcpy(szPathFileCfg, "ogAdmRepo.cfg"); // Valores por defecto de archivos
