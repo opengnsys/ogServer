@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
 	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR)
 		exit(EXIT_FAILURE);
 
-	openlog("ogAdmServer", LOG_PID, LOG_DAEMON);
+	openlog("ogserver", LOG_PID, LOG_DAEMON);
 
 	if (!validacionParametros(argc, argv, 1)) // Valida parámetros de ejecución
 		exit(EXIT_FAILURE);
