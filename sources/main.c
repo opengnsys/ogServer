@@ -42,21 +42,27 @@ int main(int argc, char *argv[])
 	}
 
 	socket_rest = og_socket_server_init("8888");
-	if (socket_rest < 0)
+	if (socket_rest < 0) {
+		syslog(LOG_ERR, "Cannot open REST API server socket\n");
 		exit(EXIT_FAILURE);
+	}
 
 	ev_io_init(&ev_io_server_rest, og_server_accept_cb, socket_rest, EV_READ);
 	ev_io_start(og_loop, &ev_io_server_rest);
 
 	socket_agent_rest = og_socket_server_init("8889");
-	if (socket_agent_rest < 0)
+	if (socket_agent_rest < 0) {
+		syslog(LOG_ERR, "Cannot open ogClient server socket\n");
 		exit(EXIT_FAILURE);
+	}
 
 	ev_io_init(&ev_io_agent_rest, og_server_accept_cb, socket_agent_rest, EV_READ);
 	ev_io_start(og_loop, &ev_io_agent_rest);
 
-	if (og_dbi_schedule_get() < 0)
+	if (og_dbi_schedule_get() < 0) {
+		syslog(LOG_ERR, "Cannot connect to database\n");
 		exit(EXIT_FAILURE);
+	}
 
 	og_schedule_next(og_loop);
 
