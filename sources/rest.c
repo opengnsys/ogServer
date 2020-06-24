@@ -2249,7 +2249,8 @@ static int og_cmd_task_post(json_t *element, struct og_msg_params *params)
 			       NULL);
 }
 
-static int og_cmd_scope_get_center(struct og_dbi *dbi, json_t *array) {
+static int og_dbi_scope_get_center(struct og_dbi *dbi, json_t *array)
+{
 	char center_name[OG_DB_CENTER_NAME_MAXLEN + 1] = {};
 	const char *msglog;
 	uint32_t center_id;
@@ -2289,9 +2290,9 @@ static int og_cmd_scope_get_center(struct og_dbi *dbi, json_t *array) {
 	return 0;
 }
 
-static int og_cmd_scope_get_room(struct og_dbi *dbi,
-				 json_t *array,
-				 uint32_t center_id) {
+static int og_dbi_scope_get_room(struct og_dbi *dbi, json_t *array,
+				 uint32_t center_id)
+{
 	char room_name[OG_DB_ROOM_NAME_MAXLEN + 1] = {};
 	const char *msglog;
 	dbi_result result;
@@ -2333,9 +2334,9 @@ static int og_cmd_scope_get_room(struct og_dbi *dbi,
 	return 0;
 }
 
-static int og_cmd_scope_get_computer(struct og_dbi *dbi,
-				     json_t *array,
-				     uint32_t room_id) {
+static int og_dbi_scope_get_computer(struct og_dbi *dbi, json_t *array,
+				     uint32_t room_id)
+{
 	char computer_name[OG_DB_COMPUTER_NAME_MAXLEN + 1] = {};
 	uint32_t computer_id;
 	const char *msglog;
@@ -2403,7 +2404,7 @@ static int og_cmd_scope_get(json_t *element, struct og_msg_params *params,
 		return -1;
 	}
 
-	if (og_cmd_scope_get_center(dbi, children_root)) {
+	if (og_dbi_scope_get_center(dbi, children_root)) {
 		og_dbi_close(dbi);
 		return -1;
 	}
@@ -2411,7 +2412,7 @@ static int og_cmd_scope_get(json_t *element, struct og_msg_params *params,
 	json_array_foreach(children_root, index1, center_value) {
 		center_id = json_integer_value(json_object_get(center_value,"id"));
 		children_center = json_object_get(center_value, "scope");
-		if (og_cmd_scope_get_room(dbi, children_center, center_id)) {
+		if (og_dbi_scope_get_room(dbi, children_center, center_id)) {
 			og_dbi_close(dbi);
 			return -1;
 		}
@@ -2419,7 +2420,7 @@ static int og_cmd_scope_get(json_t *element, struct og_msg_params *params,
 		json_array_foreach(children_center, index2, room_value) {
 			room_id = json_integer_value(json_object_get(room_value, "id"));
 			children_room = json_object_get(room_value, "scope");
-			if (og_cmd_scope_get_computer(dbi, children_room, room_id)) {
+			if (og_dbi_scope_get_computer(dbi, children_room, room_id)) {
 				og_dbi_close(dbi);
 				return -1;
 			}
