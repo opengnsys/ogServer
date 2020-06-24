@@ -2249,6 +2249,191 @@ static int og_cmd_task_post(json_t *element, struct og_msg_params *params)
 			       NULL);
 }
 
+static int og_cmd_scope_get_center(struct og_dbi *dbi, json_t *array) {
+	char center_name[OG_DB_CENTER_NAME_MAXLEN + 1] = {};
+	const char *msglog;
+	uint32_t center_id;
+	dbi_result result;
+	json_t *center;
+
+	result = dbi_conn_queryf(dbi->conn,
+				 "SELECT nombrecentro, idcentro FROM centros");
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		return -1;
+	}
+
+	while (dbi_result_next_row(result)) {
+		center_id = dbi_result_get_uint(result, "idcentro");
+		strncpy(center_name,
+			dbi_result_get_string(result, "nombrecentro"),
+			OG_DB_CENTER_NAME_MAXLEN);
+
+		center = json_object();
+		if (!center) {
+			dbi_result_free(result);
+			return -1;
+		}
+
+		json_object_set_new(center, "name", json_string(center_name));
+		json_object_set_new(center, "type", json_string("center"));
+		json_object_set_new(center, "id", json_integer(center_id));
+		json_object_set_new(center, "scope", json_array());
+		json_array_append(array, center);
+		json_decref(center);
+	}
+	dbi_result_free(result);
+
+	return 0;
+}
+
+static int og_cmd_scope_get_room(struct og_dbi *dbi,
+				 json_t *array,
+				 uint32_t center_id) {
+	char room_name[OG_DB_ROOM_NAME_MAXLEN + 1] = {};
+	const char *msglog;
+	dbi_result result;
+	uint32_t room_id;
+	json_t *room;
+
+	result = dbi_conn_queryf(dbi->conn,
+				 "SELECT idaula, nombreaula FROM aulas WHERE "
+				 "idcentro=%d",
+				 center_id);
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		return -1;
+	}
+
+	while (dbi_result_next_row(result)) {
+		room_id = dbi_result_get_uint(result, "idaula");
+		strncpy(room_name,
+			dbi_result_get_string(result, "nombreaula"),
+			OG_DB_CENTER_NAME_MAXLEN);
+
+		room = json_object();
+		if (!room) {
+			dbi_result_free(result);
+			return -1;
+		}
+
+		json_object_set_new(room, "name", json_string(room_name));
+		json_object_set_new(room, "type", json_string("room"));
+		json_object_set_new(room, "id", json_integer(room_id));
+		json_object_set_new(room, "scope", json_array());
+		json_array_append(array, room);
+		json_decref(room);
+	}
+	dbi_result_free(result);
+
+	return 0;
+}
+
+static int og_cmd_scope_get_computer(struct og_dbi *dbi,
+				     json_t *array,
+				     uint32_t room_id) {
+	char computer_name[OG_DB_COMPUTER_NAME_MAXLEN + 1] = {};
+	uint32_t computer_id;
+	const char *msglog;
+	dbi_result result;
+	json_t *computer;
+
+	result = dbi_conn_queryf(dbi->conn,
+				 "SELECT idordenador, nombreordenador, ip "
+				 "FROM ordenadores WHERE idaula=%d",
+				 room_id);
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		return -1;
+	}
+
+	while (dbi_result_next_row(result)) {
+		computer_id = dbi_result_get_uint(result, "idordenador");
+		strncpy(computer_name,
+			dbi_result_get_string(result, "nombreordenador"),
+			OG_DB_CENTER_NAME_MAXLEN);
+
+		computer = json_object();
+		if (!computer) {
+			dbi_result_free(result);
+			return -1;
+		}
+
+		json_object_set_new(computer, "name", json_string(computer_name));
+		json_object_set_new(computer, "type", json_string("computer"));
+		json_object_set_new(computer, "id", json_integer(computer_id));
+		json_object_set_new(computer, "scope", json_array());
+		json_array_append(array, computer);
+		json_decref(computer);
+	}
+	dbi_result_free(result);
+
+	return 0;
+}
+
+static int og_cmd_scope_get(json_t *element, struct og_msg_params *params,
+			    char *buffer_reply)
+{
+	json_t *root, *children_root, *children_center, *children_room,
+	       *center_value, *room_value;
+	uint32_t center_id, room_id, index1, index2;
+	struct og_dbi *dbi;
+
+	struct og_buffer og_buffer = {
+		.data = buffer_reply
+	};
+
+	root = json_object();
+	children_root = json_array();
+	if (!root || !children_root)
+		return -1;
+
+	json_object_set(root, "scope", children_root);
+
+	dbi = og_dbi_open(&dbi_config);
+	if (!dbi) {
+		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
+		       __func__, __LINE__);
+		return -1;
+	}
+
+	if (og_cmd_scope_get_center(dbi, children_root)) {
+		og_dbi_close(dbi);
+		return -1;
+	}
+
+	json_array_foreach(children_root, index1, center_value) {
+		center_id = json_integer_value(json_object_get(center_value,"id"));
+		children_center = json_object_get(center_value, "scope");
+		if (og_cmd_scope_get_room(dbi, children_center, center_id)) {
+			og_dbi_close(dbi);
+			return -1;
+		}
+
+		json_array_foreach(children_center, index2, room_value) {
+			room_id = json_integer_value(json_object_get(room_value, "id"));
+			children_room = json_object_get(room_value, "scope");
+			if (og_cmd_scope_get_computer(dbi, children_room, room_id)) {
+				og_dbi_close(dbi);
+				return -1;
+			}
+		}
+	}
+
+	og_dbi_close(dbi);
+
+	json_dump_callback(root, og_json_dump_clients, &og_buffer, 0);
+	json_decref(root);
+
+	return 0;
+}
+
 int og_dbi_schedule_get(void)
 {
 	uint32_t schedule_id, task_id;
@@ -2902,6 +3087,11 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 			return og_client_bad_request(cli);
 		}
 		err = og_cmd_session(root, &params);
+	} else if (!strncmp(cmd, "scopes", strlen("scopes"))) {
+		if (method != OG_METHOD_GET)
+			return og_client_method_not_found(cli);
+
+		err = og_cmd_scope_get(root, &params, buf_reply);
 	} else if (!strncmp(cmd, "poweroff", strlen("poweroff"))) {
 		if (method != OG_METHOD_POST)
 			return og_client_method_not_found(cli);

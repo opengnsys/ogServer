@@ -19,6 +19,8 @@ struct og_dbi *og_dbi_open(struct og_dbi_config *config);
 void og_dbi_close(struct og_dbi *db);
 
 #define OG_DB_COMPUTER_NAME_MAXLEN	100
+#define OG_DB_CENTER_NAME_MAXLEN	100
+#define OG_DB_ROOM_NAME_MAXLEN		100
 #define OG_DB_IMAGE_NAME_MAXLEN 50
 #define OG_DB_FILESYSTEM_MAXLEN 16
 #define OG_DB_INT8_MAXLEN	8
