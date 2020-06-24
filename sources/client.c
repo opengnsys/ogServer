@@ -22,13 +22,11 @@
 #include <jansson.h>
 #include <time.h>
 
-#define OG_COMPUTER_NAME_MAXLEN 100
-
 struct og_computer {
 	unsigned int	id;
 	unsigned int	center;
 	unsigned int	room;
-	char		name[OG_COMPUTER_NAME_MAXLEN + 1];
+	char		name[OG_DB_COMPUTER_NAME_MAXLEN + 1];
 	unsigned int	procedure_id;
 };
 
@@ -75,7 +73,7 @@ static int og_dbi_get_computer_info(struct og_computer *computer,
 	computer->procedure_id = dbi_result_get_uint(result, "idproautoexec");
 	strncpy(computer->name,
 		dbi_result_get_string(result, "nombreordenador"),
-		OG_COMPUTER_NAME_MAXLEN);
+		OG_DB_COMPUTER_NAME_MAXLEN);
 
 	dbi_result_free(result);
 	og_dbi_close(dbi);
