@@ -115,3 +115,6 @@ char* escaparCadena(char *cadena);
 	typeof( ((type *)0)->member ) *__mptr = (ptr);		\
 	(type *)( (char *)__mptr - offsetof(type,member) );})
 
+#include <stdbool.h>
+
+bool tomaConfiguracion(const char *filecfg);

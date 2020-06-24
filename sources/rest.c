@@ -22,6 +22,8 @@
 #include <jansson.h>
 #include <time.h>
 
+struct ev_loop *og_loop;
+
 static TRAMA *og_msg_alloc(char *data, unsigned int len)
 {
 	TRAMA *ptrTrama;
