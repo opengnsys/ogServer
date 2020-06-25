@@ -94,6 +94,4 @@ struct og_cmd {
 const struct og_cmd *og_cmd_find(const char *client_ip);
 void og_cmd_free(const struct og_cmd *cmd);
 
-extern char auth_token[LONPRM];
-
 #endif

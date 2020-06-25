@@ -23,11 +23,11 @@
 #include <jansson.h>
 #include <time.h>
 
-static char usuario[LONPRM]; // Usuario de acceso a la base de datos
-static char pasguor[LONPRM]; // Password del usuario
-static char datasource[LONPRM]; // Dirección IP del gestor de base de datos
-static char catalog[LONPRM]; // Nombre de la base de datos
-static char interface[LONPRM]; // Interface name
+char usuario[LONPRM]; // Usuario de acceso a la base de datos
+char pasguor[LONPRM]; // Password del usuario
+char datasource[LONPRM]; // Dirección IP del gestor de base de datos
+char catalog[LONPRM]; // Nombre de la base de datos
+char interface[LONPRM]; // Interface name
 char auth_token[LONPRM]; // API token
 
 struct og_dbi_config dbi_config = {

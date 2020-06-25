@@ -15,11 +15,15 @@
 #include "json.h"
 #include "schedule.h"
 #include "core.h"
+#include "cfg.h"
 #include <syslog.h>
+
+#define OG_SERVER_CFG_DATABASE	"/opt/opengnsys/cfg/ogserver.json"
 
 int main(int argc, char *argv[])
 {
 	struct ev_io ev_io_server_rest, ev_io_agent_rest;
+	struct og_server_cfg cfg = {};
 	int i;
 
 	og_loop = ev_default_loop(0);
@@ -32,8 +36,12 @@ int main(int argc, char *argv[])
 	if (!validacionParametros(argc, argv, 1)) // Valida parámetros de ejecución
 		exit(EXIT_FAILURE);
 
-	if (!tomaConfiguracion(szPathFileCfg)) { // Toma parametros de configuracion
-		exit(EXIT_FAILURE);
+	if (!tomaConfiguracion(szPathFileCfg)) {
+		syslog(LOG_INFO, "falling back to %s\n", OG_SERVER_CFG_DATABASE);
+		if (parse_json_config(OG_SERVER_CFG_DATABASE, &cfg) < 0)
+			exit(EXIT_FAILURE);
+
+		from_json_to_legacy(&cfg);
 	}
 
 	for (i = 0; i < MAXIMOS_CLIENTES; i++) {

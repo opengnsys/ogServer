@@ -3,6 +3,7 @@ sbin_PROGRAMS = ogserver
 AM_CFLAGS  =  ${LIBDBI_CFLAGS} ${LIBJANSSON_CFLAGS} ${LIBEVENT_CFLAGS} -g -Wall
 
 ogserver_SOURCES= sources/ogAdmServer.c	\
+		  sources/cfg.c		\
 		  sources/core.c	\
 		  sources/dbi.c		\
 		  sources/main.c	\

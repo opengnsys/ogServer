@@ -1,0 +1,15 @@
+{
+	"rest" : {
+		"ip" : "127.0.0.1",
+		"port" : "8888",
+		"api_token": "5a5ca1172136299640a9f47469237e0a"
+	},
+	"database" : {
+		"name" : "opengnsys",
+		"user" : "mysql",
+		"pass" : "mysql"
+	},
+	"wol" : {
+		"interface" : "lo"
+	}
+}

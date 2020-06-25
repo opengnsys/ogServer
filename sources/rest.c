@@ -11,6 +11,7 @@
 #include "utils.h"
 #include "list.h"
 #include "rest.h"
+#include "cfg.h"
 #include "schedule.h"
 #include <ev.h>
 #include <syslog.h>
