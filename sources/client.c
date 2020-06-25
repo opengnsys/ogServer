@@ -105,6 +105,8 @@ static int og_resp_probe(struct og_client *cli, json_t *data)
 		cli->status = OG_CLIENT_STATUS_BUSY;
 	else if (!strcmp(status, "OPG"))
 		cli->status = OG_CLIENT_STATUS_OGLIVE;
+	else if (!strcmp(status, "VDI"))
+		cli->status = OG_CLIENT_STATUS_VIRTUAL;
 
 	return status ? 0 : -1;
 }
