@@ -98,7 +98,7 @@ int parse_json_config(const char *filename, struct og_server_cfg *cfg)
 	int fd, ret;
 
 	fd = open(filename, O_RDONLY);
-	if (!fd) {
+	if (fd < 0) {
 		syslog(LOG_ERR, "Cannot open %s", filename);
 		return -1;
 	}
