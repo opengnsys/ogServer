@@ -2,14 +2,14 @@ sbin_PROGRAMS = ogserver
 
 AM_CFLAGS  =  ${LIBDBI_CFLAGS} ${LIBJANSSON_CFLAGS} ${LIBEVENT_CFLAGS} -g -Wall
 
-ogserver_SOURCES= sources/ogAdmServer.c	\
-		  sources/cfg.c		\
-		  sources/core.c	\
-		  sources/dbi.c		\
-		  sources/main.c	\
-		  sources/schedule.c	\
-		  sources/utils.c	\
-		  sources/rest.c	\
-		  sources/client.c	\
-		  sources/json.c	\
-		  sources/ogAdmLib.c
+ogserver_SOURCES= src/ogAdmServer.c	\
+		  src/cfg.c		\
+		  src/core.c		\
+		  src/dbi.c		\
+		  src/main.c		\
+		  src/schedule.c	\
+		  src/utils.c		\
+		  src/rest.c		\
+		  src/client.c		\
+		  src/json.c		\
+		  src/ogAdmLib.c
