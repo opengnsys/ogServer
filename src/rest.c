@@ -21,6 +21,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <jansson.h>
+#include <dirent.h>
 #include <time.h>
 
 struct ev_loop *og_loop;
@@ -835,6 +836,54 @@ static int og_cmd_reboot(json_t *element, struct og_msg_params *params)
 		return -1;
 
 	return og_send_request(OG_METHOD_POST, OG_CMD_REBOOT, params, NULL);
+}
+
+#define OG_TFTP_TMPL_PATH "/opt/opengnsys/tftpboot/menu.lst/templates"
+
+static int og_cmd_get_modes(json_t *element, struct og_msg_params *params,
+			    char *buffer_reply)
+{
+	struct og_buffer og_buffer = {
+		.data = buffer_reply
+	};
+	json_t *root, *modes;
+	struct dirent *dent;
+	DIR *d = NULL;
+
+	root = json_object();
+	if (!root)
+		return -1;
+
+	modes = json_array();
+	if (!modes) {
+		json_decref(root);
+		return -1;
+	}
+
+	d = opendir(OG_TFTP_TMPL_PATH);
+	if (!d) {
+		json_decref(modes);
+		json_decref(root);
+		syslog(LOG_ERR, "Cannot open directory %s\n",
+		       OG_TFTP_TMPL_PATH);
+		return -1;
+	}
+
+	dent = readdir(d);
+	while (dent) {
+		if (dent->d_type != DT_REG) {
+			dent = readdir(d);
+			continue;
+		}
+		json_array_append_new(modes, json_string(dent->d_name));
+		dent = readdir(d);
+	}
+
+	json_object_set_new(root, "modes", modes);
+	json_dump_callback(root, og_json_dump_clients, &og_buffer, 0);
+	json_decref(root);
+
+	return 0;
 }
 
 static int og_cmd_stop(json_t *element, struct og_msg_params *params)
@@ -3116,6 +3165,11 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 			return og_client_bad_request(cli);
 		}
 		err = og_cmd_reboot(root, &params);
+	} else if (!strncmp(cmd, "modes", strlen("modes"))) {
+		if (method != OG_METHOD_GET)
+			return og_client_method_not_found(cli);
+
+		err = og_cmd_get_modes(root, &params, buf_reply);
 	} else if (!strncmp(cmd, "stop", strlen("stop"))) {
 		if (method != OG_METHOD_POST)
 			return og_client_method_not_found(cli);
