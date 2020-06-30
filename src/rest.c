@@ -2445,9 +2445,14 @@ static int og_cmd_scope_get(json_t *element, struct og_msg_params *params,
 	};
 
 	root = json_object();
-	children_root = json_array();
-	if (!root || !children_root)
+	if (!root)
 		return -1;
+
+	children_root = json_array();
+	if (!children_root) {
+		json_decref(root);
+		return -1;
+	}
 
 	json_object_set(root, "scope", children_root);
 
