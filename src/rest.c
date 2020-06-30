@@ -882,6 +882,7 @@ static int og_cmd_get_modes(json_t *element, struct og_msg_params *params,
 	json_object_set_new(root, "modes", modes);
 	json_dump_callback(root, og_json_dump_clients, &og_buffer, 0);
 	json_decref(root);
+	closedir(d);
 
 	return 0;
 }
