@@ -19,15 +19,6 @@ struct og_server_cfg {
 };
 
 int parse_json_config(const char *filename, struct og_server_cfg *cfg);
-
-extern char auth_token[4096];
-extern char usuario[4096];
-extern char pasguor[4096];
-extern char catalog[4096];
-extern char datasource[4096];
-extern char interface[4096];
-extern char api_token[4096];
-
 void from_json_to_legacy(struct og_server_cfg *cfg);
 
 #endif

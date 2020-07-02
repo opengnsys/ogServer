@@ -15,6 +15,9 @@
 #include <sys/socket.h>
 #include "ogAdmLib.h"
 
+char szPathFileCfg[4096],szPathFileLog[4096];
+int ndebug;
+
 //______________________________________________________________________________________________________
 // Función: ValidacionParametros
 //

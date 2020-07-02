@@ -19,11 +19,16 @@
 #include <arpa/inet.h>
 #include <stdbool.h>
 #include "ogAdmLib.h"
-// ________________________________________________________________________________________________________
-// Variables globales
-// ________________________________________________________________________________________________________
-char servidoradm[LONPRM];	// Dirección IP del servidor de administración
-char puerto[LONPRM];	// Puerto de comunicación
+
+extern char auth_token[4096];
+extern char usuario[4096];
+extern char pasguor[4096];
+extern char catalog[4096];
+extern char datasource[4096];
+extern char interface[4096];
+extern char api_token[4096];
+extern char servidoradm[4096];
+extern char puerto[4096];
 
 struct og_client;
 
@@ -32,7 +37,8 @@ typedef struct{ // Estructura usada para guardar información de los clientes
 	char estado[4]; // Tipo de Sistema Operativo en que se encuentra el cliente
 	struct og_client *cli;
 }SOCKETCL;
-SOCKETCL tbsockets[MAXIMOS_CLIENTES];
+
+extern SOCKETCL tbsockets[MAXIMOS_CLIENTES];
 
 struct og_dbi;
 

@@ -74,11 +74,8 @@ typedef  void* LPVOID;
 #define TRUE 1
 #define FALSE 0
 
-// ________________________________________________________________________________________________________
-// Variables globales
-// ________________________________________________________________________________________________________
-char szPathFileCfg[LONSTD],szPathFileLog[LONSTD];
-int ndebug; // Nivel de debuger
+extern char szPathFileCfg[4096],szPathFileLog[4096];
+extern int ndebug; // Nivel de debuger
 
 typedef struct{		// Estructura de las tramas
 	char arroba;	// Caracter arroba siempre
