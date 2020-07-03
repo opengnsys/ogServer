@@ -53,6 +53,7 @@ struct og_sync_params {
 struct og_msg_params {
 	const char	*ips_array[OG_CLIENTS_MAX];
 	const char	*mac_array[OG_CLIENTS_MAX];
+	const char	*netmask_array[OG_CLIENTS_MAX];
 	unsigned int	ips_array_len;
 	const char	*wol_type;
 	char		run_cmd[4096];

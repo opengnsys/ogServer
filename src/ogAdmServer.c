@@ -447,7 +447,8 @@ int checkDato(struct og_dbi *dbi, char *dato, const char *tabla,
 //		false: En caso de ocurrir algún error
 // ________________________________________________________________________________________________________
 
-bool Levanta(char *ptrIP[], char *ptrMacs[], int lon, char *mar)
+bool Levanta(char *ptrIP[], char *ptrMacs[], char *ptrNetmasks[], int lon,
+	     char *mar)
 {
 	unsigned int on = 1;
 	struct sockaddr_in local;
@@ -472,7 +473,7 @@ bool Levanta(char *ptrIP[], char *ptrMacs[], int lon, char *mar)
 	local.sin_addr.s_addr = htonl(INADDR_ANY);
 
 	for (i = 0; i < lon; i++) {
-		if (!WakeUp(s, ptrIP[i], ptrMacs[i], mar)) {
+		if (!WakeUp(s, ptrIP[i], ptrMacs[i], ptrNetmasks[i], mar)) {
 			syslog(LOG_ERR, "problem sending magic packet\n");
 			close(s);
 			return false;
@@ -566,15 +567,27 @@ enum wol_delivery_type {
 //		false: En caso de ocurrir algún error
 //_____________________________________________________________________________________________________________
 //
-bool WakeUp(int s, char* iph, char *mac, char *mar)
+bool WakeUp(int s, char* iph, char *mac, char *netmask, char *mar)
 {
+	struct in_addr addr, netmask_addr, broadcast_addr ={};
 	unsigned int macaddr[OG_WOL_MACADDR_LEN];
 	char HDaddress_bin[OG_WOL_MACADDR_LEN];
 	struct sockaddr_in WakeUpCliente;
 	struct wol_msg Trama_WakeUp;
-	struct in_addr addr;
 	bool ret;
 	int i;
+
+	if (inet_aton(iph, &addr) < 0) {
+		syslog(LOG_ERR, "bad IP address\n");
+		return false;
+	}
+
+	if (inet_aton(netmask, &netmask_addr) < 0) {
+		syslog(LOG_ERR, "bad netmask address: %s\n", netmask);
+		return false;
+	}
+
+	broadcast_addr.s_addr = addr.s_addr | ~netmask_addr.s_addr;
 
 	for (i = 0; i < 6; i++) // Primera secuencia de la trama Wake Up (0xFFFFFFFFFFFF)
 		Trama_WakeUp.secuencia_FF[i] = 0xFF;
@@ -596,13 +609,10 @@ bool WakeUp(int s, char* iph, char *mac, char *mar)
 	switch (atoi(mar)) {
 	case OG_WOL_BROADCAST:
 		ret = wake_up_broadcast(s, &WakeUpCliente, &Trama_WakeUp);
+		ret &= wake_up_unicast(s, &WakeUpCliente, &Trama_WakeUp,
+				      &broadcast_addr);
 		break;
 	case OG_WOL_UNICAST:
-		if (inet_aton(iph, &addr) < 0) {
-			syslog(LOG_ERR, "bad IP address for unicast wol\n");
-			ret = false;
-			break;
-		}
 		ret = wake_up_unicast(s, &WakeUpCliente, &Trama_WakeUp, &addr);
 		break;
 	default:

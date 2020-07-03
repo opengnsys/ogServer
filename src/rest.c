@@ -109,6 +109,7 @@ static bool og_send_cmd(char *ips_array[], int ips_array_len,
 #define OG_REST_PARAM_TIME_HOURS		(1UL << 37)
 #define OG_REST_PARAM_TIME_AM_PM		(1UL << 38)
 #define OG_REST_PARAM_TIME_MINUTES		(1UL << 39)
+#define OG_REST_PARAM_NETMASK			(1UL << 40)
 
 static LIST_HEAD(client_list);
 
@@ -508,6 +509,14 @@ static int og_json_parse_target(json_t *element, struct og_msg_params *params)
 				json_string_value(value);
 
 			params->flags |= OG_REST_PARAM_MAC;
+		} else if (!strcmp(key, "netmask")) {
+			if (json_typeof(value) != JSON_STRING)
+				return -1;
+
+			params->netmask_array[params->ips_array_len] =
+				json_string_value(value);
+
+			params->flags |= OG_REST_PARAM_NETMASK;
 		}
 	}
 
@@ -580,11 +589,13 @@ static int og_cmd_wol(json_t *element, struct og_msg_params *params)
 
 	if (!og_msg_params_validate(params, OG_REST_PARAM_ADDR |
 					    OG_REST_PARAM_MAC |
+					    OG_REST_PARAM_NETMASK |
 					    OG_REST_PARAM_WOL_TYPE))
 		return -1;
 
 	if (!Levanta((char **)params->ips_array, (char **)params->mac_array,
-		     params->ips_array_len, (char *)params->wol_type))
+		     (char **)params->netmask_array, params->ips_array_len,
+		     (char *)params->wol_type))
 		return -1;
 
 	return 0;
@@ -2252,6 +2263,7 @@ void og_schedule_run(unsigned int task_id, unsigned int schedule_id,
 
 		if (Levanta((char **)cmd->params.ips_array,
 			    (char **)cmd->params.mac_array,
+			    (char **)cmd->params.netmask_array,
 			    cmd->params.ips_array_len,
 			    (char *)cmd->params.wol_type))
 			og_dbi_update_action(cmd->id, true);
