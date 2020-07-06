@@ -14,9 +14,9 @@
 #include "client.h"
 #include "json.h"
 #include "schedule.h"
+#include "wol.h"
 #include <syslog.h>
 #include <sys/ioctl.h>
-#include <ifaddrs.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -483,70 +483,6 @@ bool Levanta(char *ptrIP[], char *ptrMacs[], char *ptrNetmasks[], int lon,
 	return true;
 }
 
-#define OG_WOL_SEQUENCE		6
-#define OG_WOL_MACADDR_LEN	6
-#define OG_WOL_REPEAT		16
-
-struct wol_msg {
-	char secuencia_FF[OG_WOL_SEQUENCE];
-	char macbin[OG_WOL_REPEAT][OG_WOL_MACADDR_LEN];
-};
-
-static bool wake_up_broadcast(int sd, struct sockaddr_in *client,
-			      const struct wol_msg *msg)
-{
-	struct sockaddr_in *broadcast_addr;
-	struct ifaddrs *ifaddr, *ifa;
-	int ret;
-
-	if (getifaddrs(&ifaddr) < 0) {
-		syslog(LOG_ERR, "cannot get list of addresses\n");
-		return false;
-	}
-
-	client->sin_addr.s_addr = htonl(INADDR_BROADCAST);
-
-	for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
-		if (ifa->ifa_addr == NULL ||
-		    ifa->ifa_addr->sa_family != AF_INET ||
-		    strcmp(ifa->ifa_name, interface) != 0)
-			continue;
-
-		broadcast_addr =
-			(struct sockaddr_in *)ifa->ifa_ifu.ifu_broadaddr;
-		client->sin_addr.s_addr = broadcast_addr->sin_addr.s_addr;
-		break;
-	}
-	freeifaddrs(ifaddr);
-
-	ret = sendto(sd, msg, sizeof(*msg), 0,
-		     (struct sockaddr *)client, sizeof(*client));
-	if (ret < 0) {
-		syslog(LOG_ERR, "failed to send broadcast wol\n");
-		return false;
-	}
-
-	return true;
-}
-
-static bool wake_up_unicast(int sd, struct sockaddr_in *client,
-			    const struct wol_msg *msg,
-			    const struct in_addr *addr)
-{
-	int ret;
-
-	client->sin_addr.s_addr = addr->s_addr;
-
-	ret = sendto(sd, msg, sizeof(*msg), 0,
-		     (struct sockaddr *)client, sizeof(*client));
-	if (ret < 0) {
-		syslog(LOG_ERR, "failed to send unicast wol\n");
-		return false;
-	}
-
-	return true;
-}
-
 enum wol_delivery_type {
 	OG_WOL_BROADCAST = 1,
 	OG_WOL_UNICAST = 2
@@ -609,11 +545,11 @@ bool WakeUp(int s, char* iph, char *mac, char *netmask, char *mar)
 	switch (atoi(mar)) {
 	case OG_WOL_BROADCAST:
 		ret = wake_up_broadcast(s, &WakeUpCliente, &Trama_WakeUp);
-		ret &= wake_up_unicast(s, &WakeUpCliente, &Trama_WakeUp,
-				      &broadcast_addr);
+		ret &= wake_up_send(s, &WakeUpCliente, &Trama_WakeUp,
+				    &broadcast_addr);
 		break;
 	case OG_WOL_UNICAST:
-		ret = wake_up_unicast(s, &WakeUpCliente, &Trama_WakeUp, &addr);
+		ret = wake_up_send(s, &WakeUpCliente, &Trama_WakeUp, &addr);
 		break;
 	default:
 		syslog(LOG_ERR, "unknown wol type\n");

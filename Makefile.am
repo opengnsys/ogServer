@@ -12,4 +12,5 @@ ogserver_SOURCES= src/ogAdmServer.c	\
 		  src/rest.c		\
 		  src/client.c		\
 		  src/json.c		\
-		  src/ogAdmLib.c
+		  src/ogAdmLib.c	\
+		  src/wol.c
