@@ -110,6 +110,8 @@ static bool og_send_cmd(char *ips_array[], int ips_array_len,
 #define OG_REST_PARAM_TIME_AM_PM		(1UL << 38)
 #define OG_REST_PARAM_TIME_MINUTES		(1UL << 39)
 #define OG_REST_PARAM_NETMASK			(1UL << 40)
+#define OG_REST_PARAM_SCOPE			(1UL << 41)
+#define OG_REST_PARAM_MODE			(1UL << 42)
 
 static LIST_HEAD(client_list);
 
@@ -160,6 +162,12 @@ static bool og_msg_params_validate(const struct og_msg_params *params,
 				   const uint64_t flags)
 {
 	return (params->flags & flags) == flags;
+}
+
+static bool og_flags_validate(const uint64_t flags,
+			      const uint64_t required_flags)
+{
+	return (flags & required_flags) == required_flags;
 }
 
 static int og_json_parse_clients(json_t *element, struct og_msg_params *params)
@@ -894,6 +902,84 @@ static int og_cmd_get_modes(json_t *element, struct og_msg_params *params,
 	json_dump_callback(root, og_json_dump_clients, &og_buffer, 0);
 	json_decref(root);
 	closedir(d);
+
+	return 0;
+}
+
+static int og_cmd_post_modes(json_t *element, struct og_msg_params *params)
+{
+	struct og_scope scope = {};
+	const char *mode_str;
+	struct og_dbi *dbi;
+	const char *msglog;
+	uint64_t flags = 0;
+	dbi_result result;
+	const char *key;
+	json_t *value;
+	int err = 0;
+
+	json_object_foreach(element, key, value) {
+		if (!strcmp(key, "scope")) {
+			err = og_json_parse_scope(value, &scope,
+						  OG_PARAM_SCOPE_ID |
+						  OG_PARAM_SCOPE_TYPE);
+			flags |= OG_REST_PARAM_SCOPE;
+		} else if (!strcmp(key, "mode")) {
+			err = og_json_parse_string(value, &mode_str);
+			flags |= OG_REST_PARAM_MODE;
+		} else {
+			err = -1;
+		}
+
+		if (err < 0)
+			break;
+	}
+
+	if (!og_flags_validate(flags, OG_REST_PARAM_SCOPE |
+				      OG_REST_PARAM_MODE))
+		return -1;
+
+	dbi = og_dbi_open(&dbi_config);
+	if (!dbi) {
+		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
+		       __func__, __LINE__);
+		return -1;
+	}
+
+	if (!strcmp(scope.type, "computer")) {
+		result = dbi_conn_queryf(dbi->conn,
+					 "UPDATE ordenadores SET arranque='%s' "
+					 "WHERE idordenador=%u",
+					 mode_str, scope.id);
+	} else if (!strcmp(scope.type, "room")) {
+		result = dbi_conn_queryf(dbi->conn,
+					 "UPDATE ordenadores SET arranque='%s' "
+					 "WHERE idaula=%u",
+					 mode_str, scope.id);
+	} else if (!strcmp(scope.type, "center")) {
+		result = dbi_conn_queryf(dbi->conn,
+					 "UPDATE ordenadores SET arranque='%s' "
+					 "INNER JOIN aulas ON "
+					 "ordenadores.idaula=aulas.idcentro "
+					 "WHERE aulas.idcentro=%u",
+					 mode_str, scope.id);
+	} else {
+		syslog(LOG_ERR, "unknown scope type (%s:%d)\n",
+		       __func__, __LINE__);
+		og_dbi_close(dbi);
+		return -1;
+	}
+
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		og_dbi_close(dbi);
+		return -1;
+	}
+
+	dbi_result_free(result);
+	og_dbi_close(dbi);
 
 	return 0;
 }
@@ -3188,10 +3274,18 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 		}
 		err = og_cmd_reboot(root, &params);
 	} else if (!strncmp(cmd, "modes", strlen("modes"))) {
-		if (method != OG_METHOD_GET)
+		if (method != OG_METHOD_GET && method != OG_METHOD_POST)
 			return og_client_method_not_found(cli);
 
-		err = og_cmd_get_modes(root, &params, buf_reply);
+		if (method == OG_METHOD_POST && !root) {
+			syslog(LOG_ERR, "command modes with no payload\n");
+			return og_client_bad_request(cli);
+		}
+
+		if (method == OG_METHOD_GET)
+			err = og_cmd_get_modes(root, &params, buf_reply);
+		else if (method == OG_METHOD_POST)
+			err = og_cmd_post_modes(root, &params);
 	} else if (!strncmp(cmd, "stop", strlen("stop"))) {
 		if (method != OG_METHOD_POST)
 			return og_client_method_not_found(cli);

@@ -50,6 +50,17 @@ struct og_sync_params {
 	const char	*method;
 };
 
+#define OG_PARAM_SCOPE_ID	(1UL << 0)
+#define OG_PARAM_SCOPE_TYPE	(1UL << 1)
+
+struct og_scope {
+	uint32_t	id;
+	const char	*type;
+};
+
+int og_json_parse_scope(json_t *element, struct og_scope *scope,
+			const uint64_t required_flags);
+
 struct og_msg_params {
 	const char	*ips_array[OG_CLIENTS_MAX];
 	const char	*mac_array[OG_CLIENTS_MAX];

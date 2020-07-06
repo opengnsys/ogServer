@@ -39,6 +39,35 @@ int og_json_parse_bool(json_t *element, bool *value)
 	return 0;
 }
 
+int og_json_parse_scope(json_t *element, struct og_scope *scope,
+			const uint64_t required_flags)
+{
+	uint64_t flags = 0UL;
+	const char *key;
+	json_t *value;
+	int err = 0;
+
+	json_object_foreach(element, key, value) {
+		if (!strcmp(key, "id")) {
+			err = og_json_parse_uint(value, &scope->id);
+			flags |= OG_PARAM_SCOPE_ID;
+		} else if (!strcmp(key, "type")) {
+			err = og_json_parse_string(value, &scope->type);
+			flags |= OG_PARAM_SCOPE_TYPE;
+		} else {
+			err = -1;
+		}
+
+		if (err < 0)
+			return err;
+	}
+
+	if (flags != required_flags)
+		return -1;
+
+	return err;
+}
+
 int og_json_parse_partition(json_t *element, struct og_partition *part,
 			    uint64_t required_flags)
 {
