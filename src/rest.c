@@ -1030,6 +1030,110 @@ static int og_cmd_hardware(json_t *element, struct og_msg_params *params)
 	return og_send_request(OG_METHOD_GET, OG_CMD_HARDWARE, params, NULL);
 }
 
+static int og_cmd_get_hardware(json_t *element, struct og_msg_params *params,
+			       char *buffer_reply)
+{
+	const char *key, *msglog, *hw_item, *hw_type;
+	json_t *value, *root, *array, *item;
+	struct og_scope scope = {};
+	uint64_t flags = 0;
+	struct og_dbi *dbi;
+	dbi_result result;
+	int err = 0;
+
+	struct og_buffer og_buffer = {
+		.data = buffer_reply
+	};
+
+	json_object_foreach(element, key, value) {
+		if (!strcmp(key, "scope")) {
+			err = og_json_parse_scope(value, &scope,
+						  OG_PARAM_SCOPE_ID |
+						  OG_PARAM_SCOPE_TYPE);
+			flags |= OG_REST_PARAM_SCOPE;
+		} else {
+			err = -1;
+		}
+
+		if (err < 0)
+			return err;
+	}
+
+	if (!og_flags_validate(flags, OG_REST_PARAM_SCOPE))
+		return -1;
+
+	if (strcmp(scope.type, "computer")) {
+		syslog(LOG_ERR, "incorrect scope type\n");
+		return -1;
+	}
+
+	dbi = og_dbi_open(&dbi_config);
+	if (!dbi) {
+		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
+		       __func__, __LINE__);
+		return -1;
+	}
+
+	result = dbi_conn_queryf(dbi->conn,
+				 "SELECT hardwares.descripcion AS item, "
+				 "	 tipohardwares.descripcion AS type "
+				 "FROM hardwares "
+				 "INNER JOIN perfileshard_hardwares "
+				 "    ON hardwares.idhardware = perfileshard_hardwares.idhardware "
+				 "INNER JOIN ordenadores "
+				 "    ON perfileshard_hardwares.idperfilhard = ordenadores.idperfilhard "
+				 "INNER JOIN tipohardwares "
+				 "    ON hardwares.idtipohardware = tipohardwares.idtipohardware "
+				 "WHERE ordenadores.idordenador = %u",
+				 scope.id);
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		og_dbi_close(dbi);
+		return -1;
+	}
+
+	array = json_array();
+	if (!array) {
+		dbi_result_free(result);
+		og_dbi_close(dbi);
+		return -1;
+	}
+
+	while (dbi_result_next_row(result)) {
+		item = json_object();
+		if (!item) {
+			dbi_result_free(result);
+			og_dbi_close(dbi);
+			json_decref(array);
+			return -1;
+		}
+
+		hw_item = dbi_result_get_string(result, "item");
+		hw_type = dbi_result_get_string(result, "type");
+
+		json_object_set_new(item, "type", json_string(hw_type));
+		json_object_set_new(item, "description", json_string(hw_item));
+		json_array_append_new(array, item);
+	}
+
+	dbi_result_free(result);
+	og_dbi_close(dbi);
+
+	root = json_object();
+	if (!root){
+		json_decref(array);
+		return -1;
+	}
+
+	json_object_set_new(root, "hardware", array);
+
+	json_dump_callback(root, og_json_dump_clients, &og_buffer, 0);
+	json_decref(root);
+	return 0;
+}
+
 static int og_cmd_software(json_t *element, struct og_msg_params *params)
 {
 	json_t *clients, *value;
@@ -3305,14 +3409,18 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 		}
 		err = og_cmd_refresh(root, &params);
 	} else if (!strncmp(cmd, "hardware", strlen("hardware"))) {
-		if (method != OG_METHOD_POST)
+		if (method != OG_METHOD_GET && method != OG_METHOD_POST)
 			return og_client_method_not_found(cli);
 
 		if (!root) {
 			syslog(LOG_ERR, "command hardware with no payload\n");
 			return og_client_bad_request(cli);
 		}
-		err = og_cmd_hardware(root, &params);
+
+		if (method == OG_METHOD_GET)
+			err = og_cmd_get_hardware(root, &params, buf_reply);
+		else if (method == OG_METHOD_POST)
+			err = og_cmd_hardware(root, &params);
 	} else if (!strncmp(cmd, "software", strlen("software"))) {
 		if (method != OG_METHOD_POST)
 			return og_client_method_not_found(cli);
