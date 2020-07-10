@@ -7,6 +7,7 @@ struct og_dbi_config {
 	const char	*user;
 	const char	*passwd;
 	const char	*host;
+	const char	*port;
 	const char	*database;
 };
 

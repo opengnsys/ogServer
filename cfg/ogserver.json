@@ -5,6 +5,8 @@
 		"api_token": "5a5ca1172136299640a9f47469237e0a"
 	},
 	"database" : {
+		"ip": "127.0.0.1",
+		"port": 3306,
 		"name" : "opengnsys",
 		"user" : "mysql",
 		"pass" : "mysql"

@@ -31,6 +31,7 @@ char interface[4096]; // Interface name
 char auth_token[4096]; // API token
 char servidoradm[4096]; // Dirección IP del servidor de administración
 char puerto[4096];    // Puerto de comunicación
+char db_port[4096];
 
 SOCKETCL tbsockets[MAXIMOS_CLIENTES];
 
@@ -38,6 +39,7 @@ struct og_dbi_config dbi_config = {
 	.user		= usuario,
 	.passwd		= pasguor,
 	.host		= datasource,
+	.port		= db_port,
 	.database	= catalog,
 };
 
@@ -100,6 +102,9 @@ bool tomaConfiguracion(const char *filecfg)
 
 		line = fgets(buf, sizeof(buf), fcfg);
 	}
+
+	/* Default value to preserve legacy config file support */
+	snprintf(db_port, sizeof(db_port), "3306");
 
 	fclose(fcfg);
 

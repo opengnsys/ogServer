@@ -6,6 +6,7 @@ struct og_server_cfg {
                 const char *user;
                 const char *pass;
                 const char *ip;
+                unsigned int port;
                 const char *name;
         } db;
         struct {

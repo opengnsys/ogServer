@@ -29,6 +29,7 @@ extern char interface[4096];
 extern char api_token[4096];
 extern char servidoradm[4096];
 extern char puerto[4096];
+extern char db_port[4096];
 
 struct og_client;
 

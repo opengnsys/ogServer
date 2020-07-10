@@ -57,6 +57,9 @@ static int parse_json_db(struct og_server_cfg *cfg, json_t *element)
 		} else if (!strcmp(key, "name")) {
 			if (og_json_parse_string(value, &cfg->db.name) < 0)
 				return -1;
+		} else if (!strcmp(key, "port")) {
+			if (og_json_parse_uint(value, &cfg->db.port) < 0)
+				return -1;
 		} else {
 			syslog(LOG_ERR, "unknown key `%s' in db\n", key);
 			return -1;
@@ -162,4 +165,5 @@ void from_json_to_legacy(struct og_server_cfg *cfg)
 	snprintf(catalog, sizeof(catalog), cfg->db.name);
 	snprintf(interface, sizeof(interface), cfg->wol.interface);
 	snprintf(auth_token, sizeof(auth_token), cfg->rest.api_token);
+	snprintf(db_port, sizeof(db_port), "%u", cfg->db.port);
 }
