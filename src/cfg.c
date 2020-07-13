@@ -58,7 +58,8 @@ static int parse_json_db(struct og_server_cfg *cfg, json_t *element)
 			if (og_json_parse_string(value, &cfg->db.name) < 0)
 				return -1;
 		} else if (!strcmp(key, "port")) {
-			if (og_json_parse_uint(value, &cfg->db.port) < 0)
+			if (og_json_parse_uint(value, &cfg->db.port) < 0 ||
+			    cfg->db.port > UINT16_MAX)
 				return -1;
 		} else {
 			syslog(LOG_ERR, "unknown key `%s' in db\n", key);
