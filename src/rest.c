@@ -23,6 +23,7 @@
 #include <jansson.h>
 #include <dirent.h>
 #include <time.h>
+#include <stdlib.h>
 
 struct ev_loop *og_loop;
 
@@ -906,23 +907,118 @@ static int og_cmd_get_modes(json_t *element, struct og_msg_params *params,
 	return 0;
 }
 
+static int og_change_db_mode(struct og_dbi *dbi, const char *mac,
+			     const char * mode)
+{
+	const char *msglog;
+	dbi_result result;
+
+	result = dbi_conn_queryf(dbi->conn,
+				 "UPDATE ordenadores SET arranque='%s' "
+				 "WHERE mac='%s'",
+				 mode, mac);
+
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		return -1;
+	}
+
+	dbi_result_free(result);
+	return 0;
+}
+
+static int og_set_client_mode(struct og_dbi *dbi, const char *mac,
+			      const char *mode, const char *template_name,
+			      const char *scope_name)
+{
+	char filename[PATH_MAX + 1] = "/tmp/mode_params_XXXXXX";
+	char cmd_params[PATH_MAX + 1] = {};
+	char params[PATH_MAX + 1] = "\0";
+	const char *msglog;
+	dbi_result result;
+	unsigned int i;
+	char cmd[200];
+	int numbytes;
+	int err = 0;
+	int fd;
+
+	result = dbi_conn_queryf(dbi->conn,
+		"SELECT ' LANG=%s', ' ip=', CONCAT_WS(':', ordenadores.ip, (SELECT (@serverip:=ipserveradm) FROM entornos LIMIT 1), aulas.router, aulas.netmask, ordenadores.nombreordenador, ordenadores.netiface, 'none'), ' group=', REPLACE(TRIM(aulas.nombreaula), ' ', '_'), ' ogrepo=', (@repoip:=IFNULL(repositorios.ip, '')), ' oglive=', @serverip, ' oglog=', @serverip, ' ogshare=', @serverip, ' oglivedir=', ordenadores.oglivedir, ' ogprof=', IF(ordenadores.idordenador=aulas.idordprofesor, 'true', 'false'), IF(perfileshard.descripcion<>'', CONCAT(' hardprofile=', REPLACE(TRIM(perfileshard.descripcion), ' ', '_')), ''), IF(aulas.ntp<>'', CONCAT(' ogntp=', aulas.ntp), ''), IF(aulas.dns<>'', CONCAT(' ogdns=', aulas.dns), ''), IF(aulas.proxy<>'', CONCAT(' ogproxy=', aulas.proxy), ''), IF(entidades.ogunit=1 AND NOT centros.directorio='', CONCAT(' ogunit=', centros.directorio), ''), CASE WHEN menus.resolucion IS NULL THEN '' WHEN menus.resolucion <= '999' THEN CONCAT(' vga=', menus.resolucion) WHEN menus.resolucion LIKE '%:%' THEN CONCAT(' video=', menus.resolucion) ELSE menus.resolucion END FROM ordenadores JOIN aulas USING(idaula) JOIN centros USING(idcentro) JOIN entidades USING(identidad) LEFT JOIN repositorios USING(idrepositorio) LEFT JOIN perfileshard USING(idperfilhard) LEFT JOIN menus USING(idmenu) WHERE ordenadores.mac='%s'", getenv("LANG"), mac);
+
+	if (dbi_result_get_numrows(result) != 1) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
+		       __FILE__, __LINE__, msglog);
+		dbi_result_free(result);
+		return -1;
+	}
+	dbi_result_next_row(result);
+
+	for (i = 1; i <= dbi_result_get_numfields(result); ++i)
+		strcat(params, dbi_result_get_string_idx(result, i));
+
+	dbi_result_free(result);
+
+	snprintf(cmd_params, sizeof(cmd_params),
+		 "MODE_FILE='%s'\nMAC='%s'\nDATA='%s'\n"
+		 "MODE='PERM'\nTEMPLATE_NAME='%s'",
+		 mode, mac, params, template_name);
+
+	fd = mkstemp(filename);
+	if (fd < 0) {
+		syslog(LOG_ERR, "cannot generate temp file (%s:%d)\n",
+		       __func__, __LINE__);
+		return -1;
+	}
+
+	numbytes = write(fd, cmd_params, strlen(cmd_params) + 1);
+	close(fd);
+
+	if (numbytes < 0) {
+		syslog(LOG_ERR, "cannot write file\n");
+		unlink(filename);
+		return -1;
+	}
+
+	snprintf(cmd, sizeof(cmd), "/opt/opengnsys/bin/setclientmode %s",
+		 filename);
+
+	err = system(cmd);
+	unlink(filename);
+	if (err != 0) {
+		syslog(LOG_ERR, "failed script execution (%s:%d)\n",
+		       __func__, __LINE__);
+		return -1;
+	}
+
+	if (og_change_db_mode(dbi, mac, mode) < 0) {
+		syslog(LOG_ERR, "failed to change db mode (%s:%d)\n",
+		       __func__, __LINE__);
+		return -1;
+	}
+
+	return 0;
+}
+
 static int og_cmd_post_modes(json_t *element, struct og_msg_params *params)
 {
-	struct og_scope scope = {};
-	const char *mode_str;
+	const char *mode_str, *mac, *scope_name;
+	char template_file[PATH_MAX + 1] = {};
+	char template_name[PATH_MAX + 1] = {};
+	char first_line[PATH_MAX + 1] = {};
 	struct og_dbi *dbi;
-	const char *msglog;
 	uint64_t flags = 0;
 	dbi_result result;
 	const char *key;
 	json_t *value;
 	int err = 0;
+	FILE *f;
 
 	json_object_foreach(element, key, value) {
-		if (!strcmp(key, "scope")) {
-			err = og_json_parse_scope(value, &scope,
-						  OG_PARAM_SCOPE_ID |
-						  OG_PARAM_SCOPE_TYPE);
+		if (!strcmp(key, "scope_name")) {
+			err = og_json_parse_string(value, &scope_name);
 			flags |= OG_REST_PARAM_SCOPE;
 		} else if (!strcmp(key, "mode")) {
 			err = og_json_parse_string(value, &mode_str);
@@ -939,6 +1035,29 @@ static int og_cmd_post_modes(json_t *element, struct og_msg_params *params)
 				      OG_REST_PARAM_MODE))
 		return -1;
 
+	snprintf(template_file, sizeof(template_file), "%s/%s",
+		 OG_TFTP_TMPL_PATH, mode_str);
+	f = fopen(template_file, "r");
+	if (!f) {
+		syslog(LOG_ERR, "cannot open file (%s:%d)\n",
+		       __func__, __LINE__);
+		return -1;
+	}
+
+	if (!fgets(first_line, sizeof(first_line), f)) {
+		fclose(f);
+		syslog(LOG_ERR, "cannot read file (%s:%d)\n",
+		       __func__, __LINE__);
+		return -1;
+	}
+
+	fclose(f);
+
+	if (sscanf(first_line, "##NO-TOCAR-ESTA-LINEA %s", template_name) != 1) {
+		syslog(LOG_ERR, "malformed template: %s", first_line);
+		return -1;
+	}
+
 	dbi = og_dbi_open(&dbi_config);
 	if (!dbi) {
 		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
@@ -946,36 +1065,22 @@ static int og_cmd_post_modes(json_t *element, struct og_msg_params *params)
 		return -1;
 	}
 
-	if (!strcmp(scope.type, "computer")) {
-		result = dbi_conn_queryf(dbi->conn,
-					 "UPDATE ordenadores SET arranque='%s' "
-					 "WHERE idordenador=%u",
-					 mode_str, scope.id);
-	} else if (!strcmp(scope.type, "room")) {
-		result = dbi_conn_queryf(dbi->conn,
-					 "UPDATE ordenadores SET arranque='%s' "
-					 "WHERE idaula=%u",
-					 mode_str, scope.id);
-	} else if (!strcmp(scope.type, "center")) {
-		result = dbi_conn_queryf(dbi->conn,
-					 "UPDATE ordenadores SET arranque='%s' "
-					 "INNER JOIN aulas ON "
-					 "ordenadores.idaula=aulas.idcentro "
-					 "WHERE aulas.idcentro=%u",
-					 mode_str, scope.id);
-	} else {
-		syslog(LOG_ERR, "unknown scope type (%s:%d)\n",
-		       __func__, __LINE__);
-		og_dbi_close(dbi);
-		return -1;
-	}
+	result = dbi_conn_queryf(dbi->conn,
+				 "SELECT mac FROM ordenadores "
+				 "JOIN aulas USING (idaula) "
+				 "WHERE aulas.nombreaula='%s' OR "
+				 "nombreordenador='%s'",
+				 scope_name, scope_name);
 
-	if (!result) {
-		dbi_conn_error(dbi->conn, &msglog);
-		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
-		       __func__, __LINE__, msglog);
-		og_dbi_close(dbi);
-		return -1;
+	while (dbi_result_next_row(result)) {
+		mac = dbi_result_get_string(result, "mac");
+		err = og_set_client_mode(dbi, mac, mode_str,
+					 template_name, scope_name);
+		if (err != 0) {
+			dbi_result_free(result);
+			og_dbi_close(dbi);
+			return -1;
+		}
 	}
 
 	dbi_result_free(result);
