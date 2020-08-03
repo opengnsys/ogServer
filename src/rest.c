@@ -3482,12 +3482,12 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 			return og_client_bad_request(cli);
 		}
 		err = og_cmd_reboot(root, &params);
-	} else if (!strncmp(cmd, "modes", strlen("modes"))) {
+	} else if (!strncmp(cmd, "mode", strlen("mode"))) {
 		if (method != OG_METHOD_GET && method != OG_METHOD_POST)
 			return og_client_method_not_found(cli);
 
 		if (method == OG_METHOD_POST && !root) {
-			syslog(LOG_ERR, "command modes with no payload\n");
+			syslog(LOG_ERR, "command mode with no payload\n");
 			return og_client_bad_request(cli);
 		}
 
