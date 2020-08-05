@@ -24,6 +24,8 @@
 #include <dirent.h>
 #include <time.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <sys/wait.h>
 
 struct ev_loop *og_loop;
 
@@ -939,9 +941,8 @@ static int og_set_client_mode(struct og_dbi *dbi, const char *mac,
 	const char *msglog;
 	dbi_result result;
 	unsigned int i;
-	char cmd[200];
 	int numbytes;
-	int err = 0;
+	int status;
 	int fd;
 
 	result = dbi_conn_queryf(dbi->conn,
@@ -982,12 +983,16 @@ static int og_set_client_mode(struct og_dbi *dbi, const char *mac,
 		return -1;
 	}
 
-	snprintf(cmd, sizeof(cmd), "/opt/opengnsys/bin/setclientmode %s",
-		 filename);
-
-	err = system(cmd);
+	if (fork() == 0) {
+		execlp("/bin/bash", "/bin/bash",
+		       "/opt/opengnsys/bin/setclientmode", filename, NULL);
+		_exit(1);
+	} else {
+		wait(&status);
+	}
 	unlink(filename);
-	if (err != 0) {
+
+	if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
 		syslog(LOG_ERR, "failed script execution (%s:%d)\n",
 		       __func__, __LINE__);
 		return -1;
