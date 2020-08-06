@@ -936,8 +936,8 @@ static int og_set_client_mode(struct og_dbi *dbi, const char *mac,
 			      const char *scope_name)
 {
 	char filename[PATH_MAX + 1] = "/tmp/mode_params_XXXXXX";
-	char cmd_params[PATH_MAX + 1] = {};
-	char params[PATH_MAX + 1] = "\0";
+	char cmd_params[16384] = {};
+	char params[4096] = "\0";
 	const char *msglog;
 	dbi_result result;
 	unsigned int i;
