@@ -986,7 +986,9 @@ static int og_set_client_mode(struct og_dbi *dbi, const char *mac,
 	if (fork() == 0) {
 		execlp("/bin/bash", "/bin/bash",
 		       "/opt/opengnsys/bin/setclientmode", filename, NULL);
-		_exit(1);
+		syslog(LOG_ERR, "failed script execution (%s:%d)\n",
+		       __func__, __LINE__);
+		exit(EXIT_FAILURE);
 	} else {
 		wait(&status);
 	}
