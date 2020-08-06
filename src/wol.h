@@ -12,6 +12,7 @@ struct wol_msg {
 	char macbin[OG_WOL_REPEAT][OG_WOL_MACADDR_LEN];
 };
 
+int wol_socket_open(void);
 bool wake_up_send(int sd, struct sockaddr_in *client,
 		  const struct wol_msg *msg, const struct in_addr *addr);
 bool wake_up_broadcast(int sd, struct sockaddr_in *client,

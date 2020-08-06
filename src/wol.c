@@ -20,6 +20,26 @@
 #include "wol.h"
 #include "ogAdmServer.h"
 
+int wol_socket_open(void)
+{
+	unsigned int on = 1;
+	int ret, s;
+
+	s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	if (s < 0) {
+		syslog(LOG_ERR, "cannot create socket for magic packet\n");
+		return -1;
+	}
+	ret = setsockopt(s, SOL_SOCKET, SO_BROADCAST, (unsigned int *) &on,
+			 sizeof(on));
+	if (ret < 0) {
+		syslog(LOG_ERR, "cannot set broadcast socket\n");
+		return -1;
+	}
+
+	return s;
+}
+
 bool wake_up_send(int sd, struct sockaddr_in *client,
 		  const struct wol_msg *msg, const struct in_addr *addr)
 {

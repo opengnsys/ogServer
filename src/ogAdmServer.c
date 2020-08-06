@@ -455,27 +455,11 @@ int checkDato(struct og_dbi *dbi, char *dato, const char *tabla,
 bool Levanta(char *ptrIP[], char *ptrMacs[], char *ptrNetmasks[], int lon,
 	     char *mar)
 {
-	unsigned int on = 1;
-	struct sockaddr_in local;
-	int i, res;
-	int s;
+	int i, s;
 
-	/* Creación de socket para envío de magig packet */
-	s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-	if (s < 0) {
-		syslog(LOG_ERR, "cannot create socket for magic packet\n");
+	s = wol_socket_open();
+	if (s < 0)
 		return false;
-	}
-	res = setsockopt(s, SOL_SOCKET, SO_BROADCAST, (unsigned int *) &on,
-			 sizeof(on));
-	if (res < 0) {
-		syslog(LOG_ERR, "cannot set broadcast socket\n");
-		return false;
-	}
-	memset(&local, 0, sizeof(local));
-	local.sin_family = AF_INET;
-	local.sin_port = htons(PUERTO_WAKEUP);
-	local.sin_addr.s_addr = htonl(INADDR_ANY);
 
 	for (i = 0; i < lon; i++) {
 		if (!WakeUp(s, ptrIP[i], ptrMacs[i], ptrNetmasks[i], mar)) {
