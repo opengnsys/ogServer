@@ -837,8 +837,7 @@ static int og_change_db_mode(struct og_dbi *dbi, const char *mac,
 }
 
 static int og_set_client_mode(struct og_dbi *dbi, const char *mac,
-			      const char *mode, const char *template_name,
-			      const char *scope_name)
+			      const char *mode, const char *template_name)
 {
 	char filename[PATH_MAX + 1] = "/tmp/mode_params_XXXXXX";
 	char cmd_params[16384] = {};
@@ -916,10 +915,12 @@ static int og_set_client_mode(struct og_dbi *dbi, const char *mac,
 
 static int og_cmd_post_modes(json_t *element, struct og_msg_params *params)
 {
-	const char *mode_str, *mac, *scope_name;
+	char ips_str[(OG_DB_IP_MAXLEN + 1) * OG_CLIENTS_MAX + 1] = {};
 	char template_file[PATH_MAX + 1] = {};
 	char template_name[PATH_MAX + 1] = {};
 	char first_line[PATH_MAX + 1] = {};
+	const char *mode_str, *mac;
+	int ips_str_len = 0;
 	struct og_dbi *dbi;
 	uint64_t flags = 0;
 	dbi_result result;
@@ -927,11 +928,11 @@ static int og_cmd_post_modes(json_t *element, struct og_msg_params *params)
 	json_t *value;
 	int err = 0;
 	FILE *f;
+	int i;
 
 	json_object_foreach(element, key, value) {
-		if (!strcmp(key, "scope_name")) {
-			err = og_json_parse_string(value, &scope_name);
-			flags |= OG_REST_PARAM_SCOPE;
+		if (!strcmp(key, "clients")) {
+			err = og_json_parse_clients(value, params);
 		} else if (!strcmp(key, "mode")) {
 			err = og_json_parse_string(value, &mode_str);
 			flags |= OG_REST_PARAM_MODE;
@@ -943,8 +944,8 @@ static int og_cmd_post_modes(json_t *element, struct og_msg_params *params)
 			break;
 	}
 
-	if (!og_flags_validate(flags, OG_REST_PARAM_SCOPE |
-				      OG_REST_PARAM_MODE))
+	if (!og_flags_validate(flags, OG_REST_PARAM_MODE) ||
+	    !og_msg_params_validate(params, OG_REST_PARAM_ADDR))
 		return -1;
 
 	snprintf(template_file, sizeof(template_file), "%s/%s",
@@ -970,6 +971,13 @@ static int og_cmd_post_modes(json_t *element, struct og_msg_params *params)
 		return -1;
 	}
 
+	for (i = 0; i < params->ips_array_len; ++i) {
+		ips_str_len += snprintf(ips_str + ips_str_len,
+					sizeof(ips_str) - ips_str_len,
+					"'%s',", params->ips_array[i]);
+	}
+	ips_str[ips_str_len - 1] = '\0';
+
 	dbi = og_dbi_open(&dbi_config);
 	if (!dbi) {
 		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
@@ -979,15 +987,11 @@ static int og_cmd_post_modes(json_t *element, struct og_msg_params *params)
 
 	result = dbi_conn_queryf(dbi->conn,
 				 "SELECT mac FROM ordenadores "
-				 "JOIN aulas USING (idaula) "
-				 "WHERE aulas.nombreaula='%s' OR "
-				 "nombreordenador='%s'",
-				 scope_name, scope_name);
+				 "WHERE ip IN (%s)", ips_str);
 
 	while (dbi_result_next_row(result)) {
 		mac = dbi_result_get_string(result, "mac");
-		err = og_set_client_mode(dbi, mac, mode_str,
-					 template_name, scope_name);
+		err = og_set_client_mode(dbi, mac, mode_str, template_name);
 		if (err != 0) {
 			dbi_result_free(result);
 			og_dbi_close(dbi);
