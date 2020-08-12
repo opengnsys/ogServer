@@ -2192,7 +2192,7 @@ static int og_cmd_task_post(json_t *element, struct og_msg_params *params)
 static int og_dbi_scope_get_computer(struct og_dbi *dbi, json_t *array,
 				     uint32_t room_id)
 {
-	char computer_name[OG_DB_COMPUTER_NAME_MAXLEN + 1] = {};
+	const char *computer_name, *computer_ip;
 	uint32_t computer_id;
 	const char *msglog;
 	dbi_result result;
@@ -2211,9 +2211,8 @@ static int og_dbi_scope_get_computer(struct og_dbi *dbi, json_t *array,
 
 	while (dbi_result_next_row(result)) {
 		computer_id = dbi_result_get_uint(result, "idordenador");
-		strncpy(computer_name,
-			dbi_result_get_string(result, "nombreordenador"),
-			OG_DB_CENTER_NAME_MAXLEN);
+		computer_name = dbi_result_get_string(result, "nombreordenador");
+		computer_ip = dbi_result_get_string(result, "ip");
 
 		computer = json_object();
 		if (!computer) {
@@ -2225,6 +2224,7 @@ static int og_dbi_scope_get_computer(struct og_dbi *dbi, json_t *array,
 		json_object_set_new(computer, "type", json_string("computer"));
 		json_object_set_new(computer, "id", json_integer(computer_id));
 		json_object_set_new(computer, "scope", json_array());
+		json_object_set_new(computer, "ip", json_string(computer_ip));
 		json_array_append(array, computer);
 		json_decref(computer);
 	}
