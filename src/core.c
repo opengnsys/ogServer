@@ -29,28 +29,12 @@ static void og_client_release(struct ev_loop *loop, struct og_client *cli)
 		syslog(LOG_DEBUG, "closing keepalive connection for %s:%hu in slot %d\n",
 		       inet_ntoa(cli->addr.sin_addr),
 		       ntohs(cli->addr.sin_port), cli->keepalive_idx);
-		tbsockets[cli->keepalive_idx].cli = NULL;
 	}
 
 	list_del(&cli->list);
 	ev_io_stop(loop, &cli->io);
 	close(cli->io.fd);
 	free(cli);
-}
-
-static void og_client_keepalive(struct ev_loop *loop, struct og_client *cli)
-{
-	struct og_client *old_cli;
-
-	old_cli = tbsockets[cli->keepalive_idx].cli;
-	if (old_cli && old_cli != cli) {
-		syslog(LOG_DEBUG, "closing old keepalive connection for %s:%hu\n",
-		       inet_ntoa(old_cli->addr.sin_addr),
-		       ntohs(old_cli->addr.sin_port));
-
-		og_client_release(loop, old_cli);
-	}
-	tbsockets[cli->keepalive_idx].cli = cli;
 }
 
 static void og_client_reset_state(struct og_client *cli)
@@ -182,7 +166,6 @@ static void og_client_read_cb(struct ev_loop *loop, struct ev_io *io, int events
 			syslog(LOG_DEBUG, "leaving client %s:%hu in keepalive mode\n",
 			       inet_ntoa(cli->addr.sin_addr),
 			       ntohs(cli->addr.sin_port));
-			og_client_keepalive(loop, cli);
 			og_client_reset_state(cli);
 		}
 		break;

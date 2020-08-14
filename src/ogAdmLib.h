@@ -29,7 +29,6 @@
 #define LONGITUD_PARAMETROS 8192	// Longitud estandar de la información de la trama (parámetros)
 #define MAXCMD_PARAMETROS  200  // Máximo número de parámetros de una trama
 
-#define MAXIMOS_CLIENTES	4000	// Máximo número de conexiones con ordenadores clientes
 #define MAXIMAS_FUNCIONES	LONSTD	// Máximo número de funciones que procesan los mensajes entre servicio y clientes
 
 #define CLIENTE_OCUPADO	"BSY" // Cliente ocupado

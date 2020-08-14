@@ -33,8 +33,6 @@ char servidoradm[4096]; // Dirección IP del servidor de administración
 char puerto[4096];    // Puerto de comunicación
 char db_port[4096];
 
-SOCKETCL tbsockets[MAXIMOS_CLIENTES];
-
 struct og_dbi_config dbi_config = {
 	.user		= usuario,
 	.passwd		= pasguor,
@@ -140,62 +138,6 @@ bool tomaConfiguracion(const char *filecfg)
 
 #define OG_CMD_MAXLEN		64
 
-// ________________________________________________________________________________________________________
-// Función: clienteDisponible
-//
-//	Descripción:
-//		Comprueba la disponibilidad del cliente para recibir comandos interactivos
-//	Parametros:
-//		- ip : La ip del cliente a buscar
-//		- idx: (Salida)  Indice que ocupa el cliente, de estar ya registrado
-//	Devuelve:
-//		true: Si el cliente está disponible
-//		false: En caso contrario
-// ________________________________________________________________________________________________________
-bool clienteDisponible(char *ip, int* idx)
-{
-	int estado;
-
-	if (clienteExistente(ip, idx)) {
-		estado = strcmp(tbsockets[*idx].estado, CLIENTE_OCUPADO); // Cliente ocupado
-		if (estado == 0)
-			return false;
-
-		estado = strcmp(tbsockets[*idx].estado, CLIENTE_APAGADO); // Cliente apagado
-		if (estado == 0)
-			return false;
-
-		estado = strcmp(tbsockets[*idx].estado, CLIENTE_INICIANDO); // Cliente en proceso de inclusión
-		if (estado == 0)
-			return false;
-
-		return true; // En caso contrario el cliente está disponible
-	}
-	return false; // Cliente no está registrado en el sistema
-}
-// ________________________________________________________________________________________________________
-// Función: clienteExistente
-//
-//	Descripción:
-//		Comprueba si el cliente está registrado en la tabla de socket del sistema
-//	Parametros:
-//		- ip : La ip del cliente a buscar
-//		- idx:(Salida)  Indice que ocupa el cliente, de estar ya registrado
-//	Devuelve:
-//		true: Si el cliente está registrado
-//		false: En caso contrario
-// ________________________________________________________________________________________________________
-bool clienteExistente(char *ip, int* idx)
-{
-	int i;
-	for (i = 0; i < MAXIMOS_CLIENTES; i++) {
-		if (contieneIP(ip, tbsockets[i].ip)) { // Si existe la IP en la cadena
-			*idx = i;
-			return true;
-		}
-	}
-	return false;
-}
 // ________________________________________________________________________________________________________
 // Función: actualizaConfiguracion
 //

@@ -24,7 +24,6 @@ int main(int argc, char *argv[])
 {
 	struct ev_io ev_io_server_rest, ev_io_agent_rest;
 	struct og_server_cfg cfg = {};
-	int i;
 
 	og_loop = ev_default_loop(0);
 
@@ -43,11 +42,6 @@ int main(int argc, char *argv[])
 			exit(EXIT_FAILURE);
 	} else {
 		from_json_to_legacy(&cfg);
-	}
-
-	for (i = 0; i < MAXIMOS_CLIENTES; i++) {
-		tbsockets[i].ip[0] = '\0';
-		tbsockets[i].cli = NULL;
 	}
 
 	socket_rest = og_socket_server_init("8888");

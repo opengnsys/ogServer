@@ -32,19 +32,8 @@ extern char puerto[4096];
 extern char db_port[4096];
 
 struct og_client;
-
-typedef struct{ // Estructura usada para guardar información de los clientes
-	char ip[LONIP]; // IP del cliente
-	char estado[4]; // Tipo de Sistema Operativo en que se encuentra el cliente
-	struct og_client *cli;
-}SOCKETCL;
-
-extern SOCKETCL tbsockets[MAXIMOS_CLIENTES];
-
 struct og_dbi;
 
-bool clienteExistente(char *,int *);
-bool clienteDisponible(char *,int *);
 bool actualizaConfiguracion(struct og_dbi *,char* ,int);
 bool Levanta(char**, char**, char**, int, char*);
 bool WakeUp(int,char*,char*,char*,char*);
