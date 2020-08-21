@@ -103,8 +103,13 @@ static struct og_client *og_client_find(const char *ip)
 
 static const char *og_client_status(const struct og_client *cli)
 {
-	if (cli->last_cmd != OG_CMD_UNSPEC)
+	switch (cli->last_cmd) {
+	case OG_CMD_UNSPEC:
+	case OG_CMD_PROBE:
+		break;
+	default:
 		return "BSY";
+	}
 
 	switch (cli->status) {
 	case OG_CLIENT_STATUS_BUSY:
