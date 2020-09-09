@@ -1010,6 +1010,137 @@ static int og_cmd_post_modes(json_t *element, struct og_msg_params *params)
 	return 0;
 }
 
+static int og_cmd_get_client_setup(json_t *element,
+				   struct og_msg_params *params,
+				   char *buffer_reply)
+{
+	json_t *value, *root, *partitions_array, *partition_json;
+	const char *key, *msglog;
+	unsigned int len_part;
+	struct og_dbi *dbi;
+	dbi_result result;
+	int err = 0;
+
+	struct og_buffer og_buffer = {
+		.data = buffer_reply
+	};
+
+	struct {
+		int disk;
+		int number;
+		int code;
+		int size;
+		int filesystem;
+		int format;
+		int os;
+		int used_size;
+		int image;
+		int software;
+	} partition;
+
+	json_object_foreach(element, key, value) {
+		if (!strcmp(key, "client")) {
+			err = og_json_parse_clients(value, params);
+		}
+
+		if (err < 0)
+			break;
+	}
+
+	if (!og_msg_params_validate(params, OG_REST_PARAM_ADDR))
+		return -1;
+
+	if (params->ips_array_len != 1)
+		return -1;
+
+	root = json_object();
+	if (!root)
+		return -1;
+
+	partitions_array = json_array();
+	if (!partitions_array) {
+		json_decref(root);
+		return -1;
+	}
+	json_object_set_new(root, "partitions", partitions_array);
+
+	dbi = og_dbi_open(&dbi_config);
+	if (!dbi) {
+		json_decref(root);
+		syslog(LOG_ERR, "cannot open conection database (%s:%d)\n",
+		       __func__, __LINE__);
+		return -1;
+	}
+
+	result = dbi_conn_queryf(dbi->conn,
+				 "SELECT numdisk, numpar, codpar, tamano, "
+				 "       uso, idsistemafichero, idnombreso, "
+				 "       idimagen, idperfilsoft "
+				 "FROM ordenadores_particiones "
+				 "INNER JOIN ordenadores "
+				 "ON ordenadores.idordenador = ordenadores_particiones.idordenador "
+				 "WHERE ordenadores.ip='%s'",
+				 params->ips_array[0]);
+	if (!result) {
+		json_decref(root);
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		og_dbi_close(dbi);
+		return -1;
+	}
+
+	len_part = 0;
+	while (dbi_result_next_row(result) && len_part < OG_PARTITION_MAX) {
+		partition.disk = dbi_result_get_int(result, "numdisk");
+		partition.number = dbi_result_get_int(result, "numpar");
+		partition.code = dbi_result_get_int(result, "codpar");
+		partition.size = dbi_result_get_int(result, "tamano");
+		partition.used_size = dbi_result_get_int(result, "uso");
+		partition.filesystem = dbi_result_get_int(result, "idsistemafichero");
+		partition.os = dbi_result_get_int(result, "idnombreso");
+		partition.image = dbi_result_get_int(result, "idimagen");
+		partition.software = dbi_result_get_int(result, "idperfilsoft");
+
+		partition_json = json_object();
+		if (!partition_json) {
+			json_decref(root);
+			dbi_result_free(result);
+			og_dbi_close(dbi);
+			return -1;
+		}
+
+		json_object_set_new(partition_json, "disk",
+				    json_integer(partition.disk));
+		json_object_set_new(partition_json, "partition",
+				    json_integer(partition.number));
+		json_object_set_new(partition_json, "code",
+				    json_integer(partition.code));
+		json_object_set_new(partition_json, "size",
+				    json_integer(partition.size));
+		json_object_set_new(partition_json, "used_size",
+				    json_integer(partition.used_size));
+		json_object_set_new(partition_json, "filesystem",
+				    json_integer(partition.filesystem));
+		json_object_set_new(partition_json, "os",
+				    json_integer(partition.os));
+		json_object_set_new(partition_json, "image",
+				    json_integer(partition.image));
+		json_object_set_new(partition_json, "software",
+				    json_integer(partition.software));
+		json_array_append_new(partitions_array, partition_json);
+
+		++len_part;
+	}
+
+	dbi_result_free(result);
+	og_dbi_close(dbi);
+
+	json_dump_callback(root, og_json_dump_clients, &og_buffer, 0);
+	json_decref(root);
+	return 0;
+}
+
 static int og_cmd_stop(json_t *element, struct og_msg_params *params)
 {
 	const char *key;
@@ -3005,6 +3136,18 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 		default:
 			return og_client_bad_request(cli);
 		}
+	} else if (!strncmp(cmd, "client/setup",
+			    strlen("client/setup"))) {
+		if (method != OG_METHOD_GET)
+			return og_client_method_not_found(cli);
+
+		if (!root) {
+			syslog(LOG_ERR,
+			       "command client partitions with no payload\n");
+			return og_client_bad_request(cli);
+		}
+
+		err = og_cmd_get_client_setup(root, &params, buf_reply);
 	} else if (!strncmp(cmd, "wol", strlen("wol"))) {
 		if (method != OG_METHOD_POST)
 			return og_client_method_not_found(cli);
