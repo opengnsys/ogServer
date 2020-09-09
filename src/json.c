@@ -18,6 +18,15 @@ int og_json_parse_string(json_t *element, const char **str)
 	return 0;
 }
 
+int og_json_parse_uint64(json_t *element, uint64_t *integer)
+{
+	if (json_typeof(element) != JSON_INTEGER)
+		return -1;
+
+	*integer = json_integer_value(element);
+	return 0;
+}
+
 int og_json_parse_uint(json_t *element, uint32_t *integer)
 {
 	if (json_typeof(element) != JSON_INTEGER)

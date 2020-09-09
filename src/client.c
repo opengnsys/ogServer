@@ -426,18 +426,47 @@ static int og_resp_refresh(json_t *data, struct og_client *cli)
 	return 0;
 }
 
+static int update_image_info(struct og_dbi *dbi, const char *image_id,
+			     const char *clonator, const char *compressor,
+			     const char *filesystem, const uint64_t datasize)
+{
+	const char *msglog;
+	dbi_result result;
+
+	result = dbi_conn_queryf(dbi->conn,
+		"UPDATE imagenes"
+		"   SET clonator='%s', compressor='%s',"
+		"       filesystem='%s', datasize=%d"
+		" WHERE idimagen=%s", clonator, compressor, filesystem,
+		datasize, image_id);
+
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		return -1;
+	}
+	dbi_result_free(result);
+
+	return 0;
+}
+
 static int og_resp_image_create(json_t *data, struct og_client *cli)
 {
 	struct og_software_legacy soft_legacy;
 	struct og_image_legacy img_legacy;
+	const char *compressor = NULL;
+	const char *filesystem = NULL;
 	const char *partition = NULL;
 	const char *software = NULL;
 	const char *image_id = NULL;
+	const char *clonator = NULL;
 	struct og_computer computer;
 	const char *disk = NULL;
 	const char *code = NULL;
 	const char *name = NULL;
 	const char *repo = NULL;
+	uint64_t datasize = 0;
 	struct og_dbi *dbi;
 	const char *key;
 	json_t *value;
@@ -462,6 +491,14 @@ static int og_resp_image_create(json_t *data, struct og_client *cli)
 			err = og_json_parse_string(value, &name);
 		else if (!strcmp(key, "repository"))
 			err = og_json_parse_string(value, &repo);
+		else if (!strcmp(key, "clonator"))
+			err = og_json_parse_string(value, &clonator);
+		else if (!strcmp(key, "compressor"))
+			err = og_json_parse_string(value, &compressor);
+		else if (!strcmp(key, "filesystem"))
+			err = og_json_parse_string(value, &filesystem);
+		else if (!strcmp(key, "datasize"))
+			err = og_json_parse_uint64(value, &datasize);
 		else
 			return -1;
 
@@ -470,7 +507,7 @@ static int og_resp_image_create(json_t *data, struct og_client *cli)
 	}
 
 	if (!software || !partition || !disk || !code || !image_id || !name ||
-	    !repo) {
+	    !repo || !clonator || !compressor || !filesystem || !datasize) {
 		syslog(LOG_ERR, "malformed response json\n");
 		return -1;
 	}
@@ -518,10 +555,18 @@ static int og_resp_image_create(json_t *data, struct og_client *cli)
 				      img_legacy.code,
 				      img_legacy.repo,
 				      soft_legacy.id);
+	if (!res) {
+		og_dbi_close(dbi);
+		syslog(LOG_ERR, "Problem updating client configuration\n");
+		return -1;
+	}
+
+	res = update_image_info(dbi, image_id, clonator, compressor,
+				filesystem, datasize);
 	og_dbi_close(dbi);
 
-	if (!res) {
-		syslog(LOG_ERR, "Problem updating client configuration\n");
+	if (res) {
+		syslog(LOG_ERR, "Problem updating image info\n");
 		return -1;
 	}
 
