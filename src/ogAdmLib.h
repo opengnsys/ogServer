@@ -87,7 +87,6 @@ typedef struct{		// Estructura de las tramas
 // Prototipo de funciones
 // ________________________________________________________________________________________________________
 BOOLEAN validacionParametros(int,char**,int);
-char* reservaMemoria(int);
 int splitCadena(char **,char *, char);
 char* StrToUpper(char *);
 void FINCADaINTRO(TRAMA*);

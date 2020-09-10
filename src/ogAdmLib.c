@@ -151,7 +151,7 @@ char* escaparCadena(char *cadena)
 	int b,c;
 	char *buffer;
 
-	buffer = (char*) reservaMemoria(strlen(cadena)*2); // Toma memoria para el buffer de conversión
+	buffer = (char*) calloc(1, strlen(cadena)*2); // Toma memoria para el buffer de conversión
 	if (buffer == NULL) { // No hay memoria suficiente para el buffer
 		return (FALSE);
 	}
@@ -221,23 +221,4 @@ char* rTrim(char *cadena)
 			return(cadena);
 	}
 	return(cadena);
-}
-//______________________________________________________________________________________________________
-// Función: reservaMemoria
-//
-//	Descripción:
-//		Reserva memoria para una variable
-//	Parámetros:
-//		- lon:	Longitud en bytes de la reserva
-//	Devuelve:
-//		Un puntero a la zona de memoria reservada que ha sido previamente rellena con zeros o nulos
-//______________________________________________________________________________________________________
-char* reservaMemoria(int lon)
-{
-	char *mem;
-
-	mem=(char*)malloc(lon);
-	if(mem!=NULL)
-		memset(mem,0,lon);
-	return(mem);
 }
