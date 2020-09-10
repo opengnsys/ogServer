@@ -88,9 +88,6 @@ typedef struct{		// Estructura de las tramas
 // ________________________________________________________________________________________________________
 BOOLEAN validacionParametros(int,char**,int);
 char* reservaMemoria(int);
-char* ampliaMemoria(char*,int);
-void liberaMemoria(void*);
-BOOLEAN initParametros(TRAMA*,int);
 int splitCadena(char **,char *, char);
 char* StrToUpper(char *);
 void FINCADaINTRO(TRAMA*);
@@ -99,8 +96,6 @@ char *copiaParametro(const char*,TRAMA *);
 BOOLEAN contieneIP(char *,char *);
 char* rTrim(char *);
 BOOLEAN enviaMensaje(SOCKET *,TRAMA *,char);
-BOOLEAN mandaTrama(SOCKET*,TRAMA*);
-BOOLEAN sendData(SOCKET *, char* ,int );
 BOOLEAN enviaTrama(SOCKET *,TRAMA *);
 TRAMA* recibeTrama(SOCKET*);
 char* escaparCadena(char *cadena);
