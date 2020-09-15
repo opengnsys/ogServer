@@ -1091,7 +1091,8 @@ static int og_cmd_get_client_setup(json_t *element,
 	}
 
 	len_part = 0;
-	while (dbi_result_next_row(result) && len_part < OG_PARTITION_MAX) {
+	/* partition 0 represents the full disk, hence OG_PARTITION_MAX + 1. */
+	while (dbi_result_next_row(result) && len_part < OG_PARTITION_MAX + 1) {
 		partition.disk = dbi_result_get_int(result, "numdisk");
 		partition.number = dbi_result_get_int(result, "numpar");
 		partition.code = dbi_result_get_int(result, "codpar");
