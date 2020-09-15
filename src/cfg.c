@@ -158,13 +158,13 @@ int parse_json_config(const char *filename, struct og_server_cfg *cfg)
 
 void from_json_to_legacy(struct og_server_cfg *cfg)
 {
-	snprintf(servidoradm, sizeof(servidoradm), cfg->rest.ip);
-	snprintf(puerto, sizeof(puerto), cfg->rest.port);
-	snprintf(usuario, sizeof(usuario), cfg->db.user);
-	snprintf(pasguor, sizeof(pasguor), cfg->db.pass);
-	snprintf(datasource, sizeof(datasource), cfg->db.ip);
-	snprintf(catalog, sizeof(catalog), cfg->db.name);
-	snprintf(interface, sizeof(interface), cfg->wol.interface);
-	snprintf(auth_token, sizeof(auth_token), cfg->rest.api_token);
+	snprintf(servidoradm, sizeof(servidoradm), "%s", cfg->rest.ip);
+	snprintf(puerto, sizeof(puerto), "%s", cfg->rest.port);
+	snprintf(usuario, sizeof(usuario), "%s", cfg->db.user);
+	snprintf(pasguor, sizeof(pasguor), "%s", cfg->db.pass);
+	snprintf(datasource, sizeof(datasource), "%s", cfg->db.ip);
+	snprintf(catalog, sizeof(catalog), "%s", cfg->db.name);
+	snprintf(interface, sizeof(interface), "%s", cfg->wol.interface);
+	snprintf(auth_token, sizeof(auth_token), "%s", cfg->rest.api_token);
 	snprintf(db_port, sizeof(db_port), "%u", cfg->db.port);
 }
