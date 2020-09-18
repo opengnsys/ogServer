@@ -58,6 +58,7 @@ struct og_computer {
 };
 
 struct in_addr;
-int og_dbi_get_computer_info(struct og_computer *computer, struct in_addr addr);
+int og_dbi_get_computer_info(struct og_dbi *dbi, struct og_computer *computer,
+			     struct in_addr addr);
 
 #endif

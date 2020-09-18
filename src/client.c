@@ -129,20 +129,22 @@ static int og_resp_hardware(json_t *data, struct og_client *cli)
 		return -1;
 	}
 
-	err = og_dbi_get_computer_info(&computer, cli->addr.sin_addr);
-	if (err < 0)
-		return -1;
-
-	snprintf(legacy.center, sizeof(legacy.center), "%d", computer.center);
-	snprintf(legacy.id, sizeof(legacy.id), "%d", computer.id);
-	snprintf(legacy.hardware, sizeof(legacy.hardware), "%s", hardware);
-
 	dbi = og_dbi_open(&dbi_config);
 	if (!dbi) {
 		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
 		       __func__, __LINE__);
 		return -1;
 	}
+
+	err = og_dbi_get_computer_info(dbi, &computer, cli->addr.sin_addr);
+	if (err < 0) {
+		og_dbi_close(dbi);
+		return -1;
+	}
+
+	snprintf(legacy.center, sizeof(legacy.center), "%d", computer.center);
+	snprintf(legacy.id, sizeof(legacy.id), "%d", computer.id);
+	snprintf(legacy.hardware, sizeof(legacy.hardware), "%s", hardware);
 
 	res = actualizaHardware(dbi, legacy.hardware, legacy.id, computer.name,
 				legacy.center);
@@ -195,21 +197,23 @@ static int og_resp_software(json_t *data, struct og_client *cli)
 		return -1;
 	}
 
-	err = og_dbi_get_computer_info(&computer, cli->addr.sin_addr);
-	if (err < 0)
-		return -1;
-
-	snprintf(legacy.software, sizeof(legacy.software), "%s", software);
-	snprintf(legacy.part, sizeof(legacy.part), "%s", partition);
-	snprintf(legacy.id, sizeof(legacy.id), "%d", computer.id);
-	snprintf(legacy.center, sizeof(legacy.center), "%d", computer.center);
-
 	dbi = og_dbi_open(&dbi_config);
 	if (!dbi) {
 		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
 		       __func__, __LINE__);
 		return -1;
 	}
+
+	err = og_dbi_get_computer_info(dbi, &computer, cli->addr.sin_addr);
+	if (err < 0) {
+		og_dbi_close(dbi);
+		return -1;
+	}
+
+	snprintf(legacy.software, sizeof(legacy.software), "%s", software);
+	snprintf(legacy.part, sizeof(legacy.part), "%s", partition);
+	snprintf(legacy.id, sizeof(legacy.id), "%d", computer.id);
+	snprintf(legacy.center, sizeof(legacy.center), "%d", computer.center);
 
 	res = actualizaSoftware(dbi, legacy.software, legacy.part, legacy.id,
 				computer.name, legacy.center);
@@ -310,10 +314,6 @@ static int og_resp_refresh(json_t *data, struct og_client *cli)
 			return err;
 	}
 
-	err = og_dbi_get_computer_info(&computer, cli->addr.sin_addr);
-	if (err < 0)
-		return -1;
-
 	if (strlen(serial_number) > 0)
 		snprintf(cfg, sizeof(cfg), "ser=%s\n", serial_number);
 
@@ -349,6 +349,13 @@ static int og_resp_refresh(json_t *data, struct og_client *cli)
 				  __func__, __LINE__);
 		return -1;
 	}
+
+	err = og_dbi_get_computer_info(dbi, &computer, cli->addr.sin_addr);
+	if (err < 0) {
+		og_dbi_close(dbi);
+		return -1;
+	}
+
 	res = actualizaConfiguracion(dbi, cfg, computer.id);
 	og_dbi_close(dbi);
 
@@ -453,9 +460,18 @@ static int og_resp_image_create(json_t *data, struct og_client *cli)
 		return -1;
 	}
 
-	err = og_dbi_get_computer_info(&computer, cli->addr.sin_addr);
-	if (err < 0)
+	dbi = og_dbi_open(&dbi_config);
+	if (!dbi) {
+		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
+		       __func__, __LINE__);
 		return -1;
+	}
+
+	err = og_dbi_get_computer_info(dbi, &computer, cli->addr.sin_addr);
+	if (err < 0) {
+		og_dbi_close(dbi);
+		return -1;
+	}
 
 	snprintf(soft_legacy.center, sizeof(soft_legacy.center), "%d",
 		 computer.center);
@@ -469,13 +485,6 @@ static int og_resp_image_create(json_t *data, struct og_client *cli)
 	snprintf(img_legacy.code, sizeof(img_legacy.code), "%s", code);
 	snprintf(img_legacy.name, sizeof(img_legacy.name), "%s", name);
 	snprintf(img_legacy.repo, sizeof(img_legacy.repo), "%s", repo);
-
-	dbi = og_dbi_open(&dbi_config);
-	if (!dbi) {
-		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
-		       __func__, __LINE__);
-		return -1;
-	}
 
 	res = actualizaSoftware(dbi,
 				soft_legacy.software,
@@ -551,16 +560,6 @@ static int og_resp_image_restore(json_t *data, struct og_client *cli)
 		return -1;
 	}
 
-	err = og_dbi_get_computer_info(&computer, cli->addr.sin_addr);
-	if (err < 0)
-		return -1;
-
-	snprintf(img_legacy.image_id, sizeof(img_legacy.image_id), "%s",
-		 image_id);
-	snprintf(img_legacy.part, sizeof(img_legacy.part), "%s", partition);
-	snprintf(img_legacy.disk, sizeof(img_legacy.disk), "%s", disk);
-	snprintf(soft_legacy.id, sizeof(soft_legacy.id), "%d", computer.id);
-
 	dbi = og_dbi_open(&dbi_config);
 	if (!dbi) {
 		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
@@ -586,6 +585,18 @@ static int og_resp_image_restore(json_t *data, struct og_client *cli)
 	snprintf(img_legacy.software_id, sizeof(img_legacy.software_id),
 		 "%d", dbi_result_get_uint(query_result, "idperfilsoft"));
 	dbi_result_free(query_result);
+
+	err = og_dbi_get_computer_info(dbi, &computer, cli->addr.sin_addr);
+	if (err < 0) {
+		og_dbi_close(dbi);
+		return -1;
+	}
+
+	snprintf(img_legacy.image_id, sizeof(img_legacy.image_id), "%s",
+		 image_id);
+	snprintf(img_legacy.part, sizeof(img_legacy.part), "%s", partition);
+	snprintf(img_legacy.disk, sizeof(img_legacy.disk), "%s", disk);
+	snprintf(soft_legacy.id, sizeof(soft_legacy.id), "%d", computer.id);
 
 	res = actualizaRestauracionImagen(dbi,
 					  img_legacy.image_id,
