@@ -1142,6 +1142,82 @@ static int og_cmd_get_client_setup(json_t *element,
 	return 0;
 }
 
+static int og_cmd_get_client_info(json_t *element,
+				  struct og_msg_params *params,
+				  char *buffer_reply)
+{
+	struct og_computer computer = {};
+	json_t *value, *root;
+	struct in_addr addr;
+	struct og_dbi *dbi;
+	const char *key;
+	int err = 0;
+
+	struct og_buffer og_buffer = {
+		.data = buffer_reply
+	};
+
+	json_object_foreach(element, key, value) {
+		if (!strcmp(key, "client")) {
+			err = og_json_parse_clients(value, params);
+		}
+
+		if (err < 0)
+			break;
+	}
+
+	if (!og_msg_params_validate(params, OG_REST_PARAM_ADDR))
+		return -1;
+
+	if (params->ips_array_len != 1)
+		return -1;
+
+	if (inet_aton(params->ips_array[0], &addr) == 0)
+		return -1;
+
+	dbi = og_dbi_open(&dbi_config);
+	if (!dbi) {
+		syslog(LOG_ERR, "cannot open conection database (%s:%d)\n",
+		       __func__, __LINE__);
+		return -1;
+	}
+
+	if (og_dbi_get_computer_info(dbi, &computer, addr)) {
+		og_dbi_close(dbi);
+		return -1;
+	}
+
+	og_dbi_close(dbi);
+
+	root = json_object();
+	if (!root)
+		return -1;
+
+	json_object_set_new(root, "serial_number",
+			    json_string(computer.serial_number));
+	json_object_set_new(root, "hardware_id",
+			    json_integer(computer.hardware_id));
+	json_object_set_new(root, "netdriver", json_string(computer.netdriver));
+	json_object_set_new(root, "maintenance", json_boolean(computer.name));
+	json_object_set_new(root, "netiface", json_string(computer.netiface));
+	json_object_set_new(root, "repo_id", json_integer(computer.repo_id));
+	json_object_set_new(root, "livedir", json_string(computer.livedir));
+	json_object_set_new(root, "netmask", json_string(computer.netmask));
+	json_object_set_new(root, "center", json_integer(computer.center));
+	json_object_set_new(root, "remote", json_boolean(computer.remote));
+	json_object_set_new(root, "room", json_integer(computer.room));
+	json_object_set_new(root, "name", json_string(computer.name));
+	json_object_set_new(root, "boot", json_string(computer.boot));
+	json_object_set_new(root, "mac", json_string(computer.mac));
+	json_object_set_new(root, "id", json_integer(computer.id));
+	json_object_set_new(root, "ip", json_string(computer.ip));
+
+	og_dbi_free_computer_info(&computer);
+	json_dump_callback(root, og_json_dump_clients, &og_buffer, 0);
+	json_decref(root);
+	return 0;
+}
+
 static int og_cmd_stop(json_t *element, struct og_msg_params *params)
 {
 	const char *key;
@@ -3149,6 +3225,18 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 		}
 
 		err = og_cmd_get_client_setup(root, &params, buf_reply);
+	} else if (!strncmp(cmd, "client/info",
+			    strlen("client/info"))) {
+		if (method != OG_METHOD_GET)
+			return og_client_method_not_found(cli);
+
+		if (!root) {
+			syslog(LOG_ERR,
+			       "command client info with no payload\n");
+			return og_client_bad_request(cli);
+		}
+
+		err = og_cmd_get_client_info(root, &params, buf_reply);
 	} else if (!strncmp(cmd, "wol", strlen("wol"))) {
 		if (method != OG_METHOD_POST)
 			return og_client_method_not_found(cli);
