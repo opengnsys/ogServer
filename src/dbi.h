@@ -49,4 +49,15 @@ struct og_legacy_partition {
 
 extern struct og_dbi_config dbi_config;
 
+struct og_computer {
+	unsigned int	id;
+	unsigned int	center;
+	unsigned int	room;
+	char		name[OG_DB_COMPUTER_NAME_MAXLEN + 1];
+	unsigned int	procedure_id;
+};
+
+struct in_addr;
+int og_dbi_get_computer_info(struct og_computer *computer, struct in_addr addr);
+
 #endif

@@ -6,6 +6,10 @@
  * Free Software Foundation, version 3.
  */
 
+#include <syslog.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <string.h>
 #include "dbi.h"
 
 struct og_dbi *og_dbi_open(struct og_dbi_config *config)
@@ -43,4 +47,54 @@ void og_dbi_close(struct og_dbi *dbi)
 	dbi_conn_close(dbi->conn);
 	dbi_shutdown_r(dbi->inst);
 	free(dbi);
+}
+
+int og_dbi_get_computer_info(struct og_computer *computer, struct in_addr addr)
+{
+	const char *msglog;
+	struct og_dbi *dbi;
+	dbi_result result;
+
+	dbi = og_dbi_open(&dbi_config);
+	if (!dbi) {
+		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
+		       __func__, __LINE__);
+		return -1;
+	}
+	result = dbi_conn_queryf(dbi->conn,
+				 "SELECT ordenadores.idordenador,"
+				 "	 ordenadores.nombreordenador,"
+				 "	 ordenadores.idaula,"
+				 "	 ordenadores.idproautoexec,"
+				 "	 centros.idcentro FROM ordenadores "
+				 "INNER JOIN aulas ON aulas.idaula=ordenadores.idaula "
+				 "INNER JOIN centros ON centros.idcentro=aulas.idcentro "
+				 "WHERE ordenadores.ip='%s'", inet_ntoa(addr));
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		og_dbi_close(dbi);
+		return -1;
+	}
+	if (!dbi_result_next_row(result)) {
+		syslog(LOG_ERR, "client does not exist in database (%s:%d)\n",
+		       __func__, __LINE__);
+		dbi_result_free(result);
+		og_dbi_close(dbi);
+		return -1;
+	}
+
+	computer->id = dbi_result_get_uint(result, "idordenador");
+	computer->center = dbi_result_get_uint(result, "idcentro");
+	computer->room = dbi_result_get_uint(result, "idaula");
+	computer->procedure_id = dbi_result_get_uint(result, "idproautoexec");
+	strncpy(computer->name,
+		dbi_result_get_string(result, "nombreordenador"),
+		OG_DB_COMPUTER_NAME_MAXLEN);
+
+	dbi_result_free(result);
+	og_dbi_close(dbi);
+
+	return 0;
 }
