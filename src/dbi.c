@@ -11,6 +11,8 @@
 #include <arpa/inet.h>
 #include <string.h>
 #include "dbi.h"
+#include <syslog.h>
+#include <string.h>
 
 struct og_dbi *og_dbi_open(struct og_dbi_config *config)
 {
@@ -57,10 +59,23 @@ int og_dbi_get_computer_info(struct og_dbi *dbi, struct og_computer *computer,
 
 	result = dbi_conn_queryf(dbi->conn,
 				 "SELECT ordenadores.idordenador,"
-				 "	 ordenadores.nombreordenador,"
-				 "	 ordenadores.idaula,"
-				 "	 ordenadores.idproautoexec,"
-				 "	 centros.idcentro FROM ordenadores "
+				 "       ordenadores.nombreordenador,"
+				 "       ordenadores.numserie,"
+				 "       ordenadores.ip,"
+				 "       ordenadores.mac,"
+				 "       ordenadores.idaula,"
+				 "       ordenadores.idperfilhard,"
+				 "       ordenadores.idrepositorio,"
+				 "       ordenadores.mascara,"
+				 "       ordenadores.arranque,"
+				 "       ordenadores.netiface,"
+				 "       ordenadores.netdriver,"
+				 "       ordenadores.idproautoexec,"
+				 "       ordenadores.oglivedir,"
+				 "       ordenadores.inremotepc,"
+				 "       ordenadores.maintenance,"
+				 "       centros.idcentro "
+				 "FROM ordenadores "
 				 "INNER JOIN aulas ON aulas.idaula=ordenadores.idaula "
 				 "INNER JOIN centros ON centros.idcentro=aulas.idcentro "
 				 "WHERE ordenadores.ip='%s'", inet_ntoa(addr));
@@ -78,14 +93,36 @@ int og_dbi_get_computer_info(struct og_dbi *dbi, struct og_computer *computer,
 	}
 
 	computer->id = dbi_result_get_uint(result, "idordenador");
-	computer->center = dbi_result_get_uint(result, "idcentro");
+	computer->name = strdup(dbi_result_get_string(result, "nombreordenador"));
+	computer->serial_number = strdup(dbi_result_get_string(result, "numserie"));
+	computer->ip = strdup(dbi_result_get_string(result, "ip"));
+	computer->mac = strdup(dbi_result_get_string(result, "mac"));
 	computer->room = dbi_result_get_uint(result, "idaula");
+	computer->hardware_id = dbi_result_get_uint(result, "idperfilhard");
+	computer->repo_id = dbi_result_get_uint(result, "idrepositorio");
+	computer->netmask = strdup(dbi_result_get_string(result, "mascara"));
+	computer->boot = strdup(dbi_result_get_string(result, "arranque"));
+	computer->netiface = strdup(dbi_result_get_string(result, "netiface"));
+	computer->netdriver = strdup(dbi_result_get_string(result, "netdriver"));
 	computer->procedure_id = dbi_result_get_uint(result, "idproautoexec");
-	strncpy(computer->name,
-		dbi_result_get_string(result, "nombreordenador"),
-		OG_DB_COMPUTER_NAME_MAXLEN);
+	computer->livedir = strdup(dbi_result_get_string(result, "oglivedir"));
+	computer->remote = dbi_result_get_uint(result, "inremotepc") != 0;
+	computer->maintenance = dbi_result_get_uint(result, "maintenance") != 0;
 
 	dbi_result_free(result);
 
 	return 0;
+}
+
+void og_dbi_free_computer_info(struct og_computer *computer)
+{
+	free(computer->serial_number);
+	free(computer->netdriver);
+	free(computer->netiface);
+	free(computer->netmask);
+	free(computer->livedir);
+	free(computer->name);
+	free(computer->boot);
+	free(computer->mac);
+	free(computer->ip);
 }

@@ -2,6 +2,7 @@
 #define __OG_DBI
 
 #include <dbi/dbi.h>
+#include <stdbool.h>
 
 struct og_dbi_config {
 	const char	*user;
@@ -50,15 +51,28 @@ struct og_legacy_partition {
 extern struct og_dbi_config dbi_config;
 
 struct og_computer {
-	unsigned int	id;
+	unsigned int	procedure_id;
+	unsigned int	hardware_id;
+	unsigned int	repo_id;
 	unsigned int	center;
 	unsigned int	room;
-	char		name[OG_DB_COMPUTER_NAME_MAXLEN + 1];
-	unsigned int	procedure_id;
+	unsigned int	id;
+	bool		maintenance;
+	bool		remote;
+	char		*serial_number;
+	char		*netdriver;
+	char		*netiface;
+	char		*netmask;
+	char		*livedir;
+	char		*name;
+	char		*boot;
+	char		*mac;
+	char		*ip;
 };
 
 struct in_addr;
 int og_dbi_get_computer_info(struct og_dbi *dbi, struct og_computer *computer,
 			     struct in_addr addr);
+void og_dbi_free_computer_info(struct og_computer *computer);
 
 #endif

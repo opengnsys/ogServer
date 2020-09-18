@@ -103,8 +103,8 @@ struct og_computer_legacy  {
 static int og_resp_hardware(json_t *data, struct og_client *cli)
 {
 	struct og_computer_legacy legacy = {};
+	struct og_computer computer = {};
 	const char *hardware = NULL;
-	struct og_computer computer;
 	struct og_dbi *dbi;
 	const char *key;
 	json_t *value;
@@ -133,6 +133,7 @@ static int og_resp_hardware(json_t *data, struct og_client *cli)
 	if (!dbi) {
 		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
 		       __func__, __LINE__);
+		og_dbi_free_computer_info(&computer);
 		return -1;
 	}
 
@@ -149,6 +150,7 @@ static int og_resp_hardware(json_t *data, struct og_client *cli)
 	res = actualizaHardware(dbi, legacy.hardware, legacy.id, computer.name,
 				legacy.center);
 	og_dbi_close(dbi);
+	og_dbi_free_computer_info(&computer);
 
 	if (!res) {
 		syslog(LOG_ERR, "Problem updating client configuration\n");
@@ -168,9 +170,9 @@ struct og_software_legacy {
 static int og_resp_software(json_t *data, struct og_client *cli)
 {
 	struct og_software_legacy legacy = {};
+	struct og_computer computer = {};
 	const char *partition = NULL;
 	const char *software = NULL;
-	struct og_computer computer;
 	struct og_dbi *dbi;
 	const char *key;
 	json_t *value;
@@ -201,6 +203,7 @@ static int og_resp_software(json_t *data, struct og_client *cli)
 	if (!dbi) {
 		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
 		       __func__, __LINE__);
+		og_dbi_free_computer_info(&computer);
 		return -1;
 	}
 
@@ -218,6 +221,7 @@ static int og_resp_software(json_t *data, struct og_client *cli)
 	res = actualizaSoftware(dbi, legacy.software, legacy.part, legacy.id,
 				computer.name, legacy.center);
 	og_dbi_close(dbi);
+	og_dbi_free_computer_info(&computer);
 
 	if (!res) {
 		syslog(LOG_ERR, "Problem updating client configuration\n");
@@ -347,6 +351,7 @@ static int og_resp_refresh(json_t *data, struct og_client *cli)
 	if (!dbi) {
 		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
 				  __func__, __LINE__);
+		og_dbi_free_computer_info(&computer);
 		return -1;
 	}
 
@@ -361,15 +366,19 @@ static int og_resp_refresh(json_t *data, struct og_client *cli)
 
 	if (!res) {
 		syslog(LOG_ERR, "Problem updating client configuration\n");
+		og_dbi_free_computer_info(&computer);
 		return -1;
 	}
 
 	if (!cli->autorun && computer.procedure_id) {
 		cli->autorun = true;
 
-		if (og_dbi_queue_autorun(computer.id, computer.procedure_id))
+		if (og_dbi_queue_autorun(computer.id, computer.procedure_id)) {
+			og_dbi_free_computer_info(&computer);
 			return -1;
+		}
 	}
+	og_dbi_free_computer_info(&computer);
 
 	return 0;
 }
@@ -403,13 +412,13 @@ static int og_resp_image_create(json_t *data, struct og_client *cli)
 {
 	struct og_software_legacy soft_legacy;
 	struct og_image_legacy img_legacy;
+	struct og_computer computer = {};
 	const char *compressor = NULL;
 	const char *filesystem = NULL;
 	const char *partition = NULL;
 	const char *software = NULL;
 	const char *image_id = NULL;
 	const char *clonator = NULL;
-	struct og_computer computer;
 	const char *disk = NULL;
 	const char *code = NULL;
 	const char *name = NULL;
@@ -493,10 +502,12 @@ static int og_resp_image_create(json_t *data, struct og_client *cli)
 				computer.name,
 				soft_legacy.center);
 	if (!res) {
+		og_dbi_free_computer_info(&computer);
 		og_dbi_close(dbi);
 		syslog(LOG_ERR, "Problem updating client configuration\n");
 		return -1;
 	}
+	og_dbi_free_computer_info(&computer);
 
 	res = actualizaCreacionImagen(dbi,
 				      img_legacy.image_id,
@@ -527,9 +538,9 @@ static int og_resp_image_restore(json_t *data, struct og_client *cli)
 {
 	struct og_software_legacy soft_legacy;
 	struct og_image_legacy img_legacy;
+	struct og_computer computer = {};
 	const char *partition = NULL;
 	const char *image_id = NULL;
-	struct og_computer computer;
 	const char *disk = NULL;
 	dbi_result query_result;
 	struct og_dbi *dbi;
@@ -597,6 +608,8 @@ static int og_resp_image_restore(json_t *data, struct og_client *cli)
 	snprintf(img_legacy.part, sizeof(img_legacy.part), "%s", partition);
 	snprintf(img_legacy.disk, sizeof(img_legacy.disk), "%s", disk);
 	snprintf(soft_legacy.id, sizeof(soft_legacy.id), "%d", computer.id);
+
+	og_dbi_free_computer_info(&computer);
 
 	res = actualizaRestauracionImagen(dbi,
 					  img_legacy.image_id,
