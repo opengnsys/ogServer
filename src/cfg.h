@@ -23,4 +23,6 @@ struct og_server_cfg {
 int parse_json_config(const char *filename, struct og_server_cfg *cfg);
 void from_json_to_legacy(struct og_server_cfg *cfg);
 
+extern struct og_server_cfg cfg;
+
 #endif

@@ -20,10 +20,11 @@
 
 #define OG_SERVER_CFG_JSON	"/opt/opengnsys/cfg/ogserver.json"
 
+struct og_server_cfg cfg;
+
 int main(int argc, char *argv[])
 {
 	struct ev_io ev_io_server_rest, ev_io_agent_rest;
-	struct og_server_cfg cfg = {};
 
 	og_loop = ev_default_loop(0);
 
