@@ -17,6 +17,7 @@ struct og_server_cfg {
         struct {
                 const char      *interface;
         } wol;
+	json_t			*json;
 };
 
 int parse_json_config(const char *filename, struct og_server_cfg *cfg);

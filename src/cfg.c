@@ -121,19 +121,22 @@ int parse_json_config(const char *filename, struct og_server_cfg *cfg)
 
 	json_object_foreach(root, key, value) {
 		if (!strcmp(key, "rest")) {
-			if (parse_json_rest(cfg, value) < 0)
-				return -1;
-
+			if (parse_json_rest(cfg, value) < 0) {
+				ret = -1;
+				break;
+			}
 			flags |= OG_SERVER_CFG_REST;
 		} else if (!strcmp(key, "wol")) {
-			if (parse_json_wol(cfg, value) < 0)
-				return -1;
-
+			if (parse_json_wol(cfg, value) < 0) {
+				ret = -1;
+				break;
+			}
 			flags |= OG_SERVER_CFG_WOL;
 		} else if (!strcmp(key, "database")) {
-			if (parse_json_db(cfg, value) < 0)
-				return -1;
-
+			if (parse_json_db(cfg, value) < 0) {
+				ret = -1;
+				break;
+			}
 			flags |= OG_SERVER_CFG_DB;
 		} else {
 			syslog(LOG_ERR, "unknown key `%s' in %s\n",
@@ -141,6 +144,9 @@ int parse_json_config(const char *filename, struct og_server_cfg *cfg)
 			ret = -1;
 		}
 	}
+
+	if (ret < 0)
+		json_decref(root);
 
 	if ((flags & OG_SERVER_CFG_REST) &&
 	    (flags & OG_SERVER_CFG_DB) &&
@@ -151,7 +157,10 @@ int parse_json_config(const char *filename, struct og_server_cfg *cfg)
 		ret = -1;
 	}
 
-	json_decref(root);
+	if (ret < 0)
+		json_decref(root);
+	else
+		cfg->json = root;
 
 	return ret;
 }
