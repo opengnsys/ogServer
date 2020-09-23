@@ -33,6 +33,7 @@ enum og_cmd_type {
 	OG_CMD_IMAGE_RESTORE,
 	OG_CMD_SETUP,
 	OG_CMD_RUN_SCHEDULE,
+	OG_CMD_IMAGES,
 	OG_CMD_MAX
 };
 

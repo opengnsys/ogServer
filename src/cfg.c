@@ -88,9 +88,28 @@ static int parse_json_wol(struct og_server_cfg *cfg, json_t *element)
 	return 0;
 }
 
+static int parse_json_repo(struct og_server_cfg *cfg, json_t *element)
+{
+	const char *key;
+	json_t *value;
+
+	json_object_foreach(element, key, value) {
+		if (!strcmp(key, "directory")) {
+			if (og_json_parse_string(value, &cfg->repo.dir) < 0)
+				return -1;
+		} else {
+			syslog(LOG_ERR, "unknown key `%s' in repo\n", key);
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
 #define OG_SERVER_CFG_REST	(1 << 0)
 #define OG_SERVER_CFG_DB	(1 << 1)
 #define OG_SERVER_CFG_WOL	(1 << 2)
+#define OG_SERVER_CFG_REPO	(1 << 3)
 
 int parse_json_config(const char *filename, struct og_server_cfg *cfg)
 {
@@ -138,6 +157,11 @@ int parse_json_config(const char *filename, struct og_server_cfg *cfg)
 				break;
 			}
 			flags |= OG_SERVER_CFG_DB;
+		} else if (!strcmp(key, "repository")) {
+			if (parse_json_repo(cfg, value) < 0)
+				return -1;
+
+			flags |= OG_SERVER_CFG_REPO;
 		} else {
 			syslog(LOG_ERR, "unknown key `%s' in %s\n",
 			       key, filename);
@@ -150,7 +174,8 @@ int parse_json_config(const char *filename, struct og_server_cfg *cfg)
 
 	if ((flags & OG_SERVER_CFG_REST) &&
 	    (flags & OG_SERVER_CFG_DB) &&
-	    (flags & OG_SERVER_CFG_WOL)) {
+	    (flags & OG_SERVER_CFG_WOL) &&
+	    (flags & OG_SERVER_CFG_REPO)) {
 		ret = 0;
 	} else {
 		syslog(LOG_ERR, "Missing attributes in json file");

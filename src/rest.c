@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <sys/statvfs.h>
 
 struct ev_loop *og_loop;
 
@@ -240,6 +241,7 @@ static const char *og_cmd_to_uri[OG_CMD_MAX] = {
 	[OG_CMD_IMAGE_RESTORE]	= "image/restore",
 	[OG_CMD_SETUP]		= "setup",
 	[OG_CMD_RUN_SCHEDULE]	= "run/schedule",
+	[OG_CMD_IMAGES]		= "images",
 };
 
 static bool og_client_is_busy(const struct og_client *cli,
@@ -1530,6 +1532,161 @@ static int og_cmd_software(json_t *element, struct og_msg_params *params)
 	json_object_del(clients, "clients");
 
 	return og_send_request(OG_METHOD_POST, OG_CMD_SOFTWARE, params, clients);
+}
+
+#define OG_IMAGE_TYPE_MAXLEN	4
+
+struct og_image {
+	const char		*filename;
+	uint64_t		datasize;
+	struct stat		image_stats;
+};
+
+static int og_get_image_stats(const char *name,
+			      struct stat *image_stats)
+{
+	const char *dir = cfg.repo.dir;
+	char filename[PATH_MAX + 1];
+
+	snprintf(filename, sizeof(filename), "%s/%s", dir, name);
+	if (stat(filename, image_stats) < 0) {
+		syslog(LOG_ERR, "%s image does not exists", name);
+		return -1;
+	}
+	return 0;
+}
+
+static json_t *og_json_disk_alloc()
+{
+	const char *dir = cfg.repo.dir;
+	struct statvfs buffer;
+	json_t *disk_json;
+	int ret;
+
+	ret = statvfs(dir, &buffer);
+	if (ret)
+		return NULL;
+
+	disk_json = json_object();
+	if (!disk_json)
+		return NULL;
+
+	json_object_set_new(disk_json, "total",
+			    json_integer(buffer.f_blocks * buffer.f_frsize));
+	json_object_set_new(disk_json, "free",
+			    json_integer(buffer.f_bfree * buffer.f_frsize));
+
+	return disk_json;
+}
+
+#define OG_PERMS_IRWX (S_IRWXU | S_IRWXG | S_IRWXO)
+#define OG_PERMS_MAXLEN 4
+
+static json_t *og_json_image_alloc(struct og_image *image)
+{
+	char perms_string[OG_PERMS_MAXLEN];
+	json_t *image_json;
+	char *modified;
+	uint16_t perms;
+
+	image_json = json_object();
+	if (!image_json)
+		return NULL;
+
+	perms = image->image_stats.st_mode & OG_PERMS_IRWX;
+	snprintf(perms_string, sizeof(perms_string), "%o", perms);
+
+	modified = ctime(&image->image_stats.st_mtime);
+	modified[strlen(modified) - 1] = '\0';
+
+	json_object_set_new(image_json, "filename",
+			    json_string(image->filename));
+	json_object_set_new(image_json, "datasize",
+			    json_integer(image->datasize));
+	json_object_set_new(image_json, "size",
+			    json_integer(image->image_stats.st_size));
+	json_object_set_new(image_json, "modified",
+			    json_string(modified));
+	json_object_set_new(image_json, "permissions",
+			    json_string(perms_string));
+
+	return image_json;
+}
+
+static int og_cmd_images(char *buffer_reply)
+{
+	json_t *root, *images, *image_json, *disk_json;
+	struct og_buffer og_buffer = {
+		.data = buffer_reply
+	};
+	struct og_image image;
+	struct og_dbi *dbi;
+	dbi_result result;
+
+	root = json_object();
+	if (!root)
+		return -1;
+
+	images = json_array();
+	if (!images) {
+		json_decref(root);
+		return -1;
+	}
+
+	json_object_set_new(root, "images", images);
+
+	dbi = og_dbi_open(&dbi_config);
+	if (!dbi) {
+		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
+		       __func__, __LINE__);
+		json_decref(root);
+		return -1;
+	}
+
+	result = dbi_conn_queryf(dbi->conn,
+				 "SELECT i.nombreca, o.nombreordenador, "
+				 "       i.clonator, i.compressor, "
+				 "       i.filesystem, i.datasize "
+				 "FROM imagenes i "
+				 "LEFT JOIN ordenadores o "
+				 "ON i.idordenador = o.idordenador");
+
+	while (dbi_result_next_row(result)) {
+		image = (struct og_image){0};
+		image.filename = dbi_result_get_string(result, "nombreca");
+		image.datasize = dbi_result_get_ulonglong(result, "datasize");
+
+		if (og_get_image_stats(image.filename, &image.image_stats)) {
+			continue;
+		}
+
+		image_json = og_json_image_alloc(&image);
+		if (!image_json) {
+			dbi_result_free(result);
+			og_dbi_close(dbi);
+			json_decref(root);
+			return -1;
+		}
+
+		json_array_append(images, image_json);
+	}
+
+	dbi_result_free(result);
+	og_dbi_close(dbi);
+
+	disk_json = og_json_disk_alloc();
+	if (!disk_json) {
+		syslog(LOG_ERR, "cannot allocate disk json");
+		json_decref(root);
+		return -1;
+	}
+
+	json_object_set_new(root, "disk", disk_json);
+
+	json_dump_callback(root, og_json_dump_clients, &og_buffer, 0);
+	json_decref(root);
+
+	return 0;
 }
 
 static int og_cmd_create_image(json_t *element, struct og_msg_params *params)
@@ -3489,6 +3646,14 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 			return og_client_bad_request(cli);
 		}
 		err = og_cmd_software(root, &params);
+	} else if (!strncmp(cmd, "images", strlen("images"))) {
+		if (method != OG_METHOD_GET)
+			return og_client_method_not_found(cli);
+
+		if (!root)
+			err = og_cmd_images(buf_reply);
+		else
+			return og_client_method_not_found(cli);
 	} else if (!strncmp(cmd, "image/create", strlen("image/create"))) {
 		if (method != OG_METHOD_POST)
 			return og_client_method_not_found(cli);

@@ -17,6 +17,9 @@ struct og_server_cfg {
         struct {
                 const char      *interface;
         } wol;
+        struct {
+                const char      *dir;
+        } repo;
 	json_t			*json;
 };
 
