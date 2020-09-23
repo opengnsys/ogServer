@@ -1218,6 +1218,134 @@ static int og_cmd_get_client_info(json_t *element,
 	return 0;
 }
 
+static int og_cmd_post_client_add(json_t *element,
+				  struct og_msg_params *params,
+				  char *buffer_reply)
+{
+	const char *key, *str, *msglog;
+	struct og_computer computer = {};
+	struct og_dbi *dbi;
+	dbi_result result;
+	json_t *value;
+	int err = 0;
+
+	json_object_foreach(element, key, value) {
+		if (!strcmp(key, "serial_number")) {
+			err = og_json_parse_string(value, &str);
+			computer.serial_number = strdup(str);
+		} else if (!strcmp(key, "hardware_id")) {
+			err = og_json_parse_uint(value, &computer.hardware_id);
+		} else if (!strcmp(key, "netdriver")) {
+			err = og_json_parse_string(value, &str);
+			computer.netdriver = strdup(str);
+		} else if (!strcmp(key, "maintenance")) {
+			err = og_json_parse_bool(value, &computer.maintenance);
+		} else if (!strcmp(key, "netiface")) {
+			err = og_json_parse_string(value, &str);
+			computer.netiface = strdup(str);
+		} else if (!strcmp(key, "repo_id")) {
+			err = og_json_parse_uint(value, &computer.repo_id);
+		} else if (!strcmp(key, "livedir")) {
+			err = og_json_parse_string(value, &str);
+			computer.livedir = strdup(str);
+		} else if (!strcmp(key, "netmask")) {
+			err = og_json_parse_string(value, &str);
+			computer.netmask = strdup(str);
+		} else if (!strcmp(key, "remote")) {
+			err = og_json_parse_bool(value, &computer.remote);
+		} else if (!strcmp(key, "room")) {
+			err = og_json_parse_uint(value, &computer.room);
+		} else if (!strcmp(key, "name")) {
+			err = og_json_parse_string(value, &str);
+			computer.name = strdup(str);
+		} else if (!strcmp(key, "boot")) {
+			err = og_json_parse_string(value, &str);
+			computer.boot = strdup(str);
+		} else if (!strcmp(key, "mac")) {
+			err = og_json_parse_string(value, &str);
+			computer.mac = strdup(str);
+		} else if (!strcmp(key, "ip")) {
+			err = og_json_parse_string(value, &str);
+			computer.ip = strdup(str);
+		}
+
+		if (err < 0)
+			break;
+	}
+
+	dbi = og_dbi_open(&dbi_config);
+	if (!dbi) {
+		syslog(LOG_ERR, "cannot open conection database (%s:%d)\n",
+		       __func__, __LINE__);
+		og_dbi_free_computer_info(&computer);
+		return -1;
+	}
+
+	result = dbi_conn_queryf(dbi->conn,
+				 "SELECT ip FROM ordenadores WHERE ip='%s'",
+				 computer.ip);
+
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		og_dbi_close(dbi);
+		og_dbi_free_computer_info(&computer);
+		return -1;
+	}
+
+	if (dbi_result_get_numrows(result) > 0) {
+		syslog(LOG_ERR, "client with the same IP already exists: %s\n",
+		       computer.ip);
+		dbi_result_free(result);
+		og_dbi_close(dbi);
+		og_dbi_free_computer_info(&computer);
+		return -1;
+	}
+	dbi_result_free(result);
+
+	result = dbi_conn_queryf(dbi->conn,
+				 "INSERT INTO ordenadores("
+				 "  nombreordenador,"
+				 "  numserie,"
+				 "  ip,"
+				 "  mac,"
+				 "  idaula,"
+				 "  idperfilhard,"
+				 "  idrepositorio,"
+				 "  mascara,"
+				 "  arranque,"
+				 "  netiface,"
+				 "  netdriver,"
+				 "  oglivedir,"
+				 "  inremotepc,"
+				 "  maintenance"
+				 ") VALUES ('%s', '%s', '%s', '%s', %u, %u,"
+				 "           %u, '%s', '%s', '%s', '%s',"
+				 "          '%s', %u, %u)",
+				 computer.name, computer.serial_number,
+				 computer.ip, computer.mac, computer.room,
+				 computer.hardware_id, computer.repo_id,
+				 computer.netmask, computer.boot,
+				 computer.netiface, computer.netdriver,
+				 computer.livedir, computer.remote,
+				 computer.maintenance);
+
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR, "failed to add client to database (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		og_dbi_close(dbi);
+		og_dbi_free_computer_info(&computer);
+		return -1;
+	}
+
+	dbi_result_free(result);
+	og_dbi_close(dbi);
+	og_dbi_free_computer_info(&computer);
+	return 0;
+}
+
 static int og_cmd_stop(json_t *element, struct og_msg_params *params)
 {
 	const char *key;
@@ -3237,6 +3365,17 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 		}
 
 		err = og_cmd_get_client_info(root, &params, buf_reply);
+	} else if (!strncmp(cmd, "client/add", strlen("client/add"))) {
+		if (method != OG_METHOD_POST)
+			return og_client_method_not_found(cli);
+
+		if (!root) {
+			syslog(LOG_ERR,
+			       "command client info with no payload\n");
+			return og_client_bad_request(cli);
+		}
+
+		err = og_cmd_post_client_add(root, &params, buf_reply);
 	} else if (!strncmp(cmd, "wol", strlen("wol"))) {
 		if (method != OG_METHOD_POST)
 			return og_client_method_not_found(cli);
