@@ -393,7 +393,7 @@ static int update_image_info(struct og_dbi *dbi, const char *image_id,
 	result = dbi_conn_queryf(dbi->conn,
 		"UPDATE imagenes"
 		"   SET clonator='%s', compressor='%s',"
-		"       filesystem='%s', datasize=%d"
+		"       filesystem='%s', datasize=%lld"
 		" WHERE idimagen=%s", clonator, compressor, filesystem,
 		datasize, image_id);
 
