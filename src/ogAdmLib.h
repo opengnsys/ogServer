@@ -73,9 +73,6 @@ typedef  void* LPVOID;
 #define TRUE 1
 #define FALSE 0
 
-extern char szPathFileCfg[4096],szPathFileLog[4096];
-extern int ndebug; // Nivel de debuger
-
 typedef struct{		// Estructura de las tramas
 	char arroba;	// Caracter arroba siempre
 	char identificador[14];	// Identificador de la trama, siempre JMMLCAMDJ_MCDJ
@@ -86,7 +83,6 @@ typedef struct{		// Estructura de las tramas
 // ________________________________________________________________________________________________________
 // Prototipo de funciones
 // ________________________________________________________________________________________________________
-BOOLEAN validacionParametros(int,char**,int);
 int splitCadena(char **,char *, char);
 char* StrToUpper(char *);
 void FINCADaINTRO(TRAMA*);
@@ -104,7 +100,3 @@ char* escaparCadena(char *cadena);
 #define container_of(ptr, type, member) ({			\
 	typeof( ((type *)0)->member ) *__mptr = (ptr);		\
 	(type *)( (char *)__mptr - offsetof(type,member) );})
-
-#include <stdbool.h>
-
-bool tomaConfiguracion(const char *filecfg);

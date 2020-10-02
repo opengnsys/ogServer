@@ -17,6 +17,12 @@
 #include "core.h"
 #include "cfg.h"
 #include <syslog.h>
+#include <getopt.h>
+
+static struct option og_server_opts[] = {
+	{ "config-file", 1, 0, 'f' },
+	{ NULL },
+};
 
 #define OG_SERVER_CFG_JSON	"/opt/opengnsys/cfg/ogserver.json"
 
@@ -24,7 +30,9 @@ struct og_server_cfg cfg;
 
 int main(int argc, char *argv[])
 {
+	char config_file[PATH_MAX + 1] = OG_SERVER_CFG_JSON;
 	struct ev_io ev_io_server_rest, ev_io_agent_rest;
+	int val;
 
 	og_loop = ev_default_loop(0);
 
@@ -33,19 +41,32 @@ int main(int argc, char *argv[])
 
 	openlog("ogserver", LOG_PID, LOG_DAEMON);
 
-	if (!validacionParametros(argc, argv, 1)) // Valida parámetros de ejecución
-		exit(EXIT_FAILURE);
+	while (1) {
+		val = getopt_long(argc, argv, "f:l:d:", og_server_opts, NULL);
+		if (val < 0)
+			break;
 
-	if (parse_json_config(OG_SERVER_CFG_JSON, &cfg) < 0) {
-		syslog(LOG_INFO, "Falling back to legacy configuration file at %s\n",
-		       szPathFileCfg);
-		if (!tomaConfiguracion(szPathFileCfg))
-			exit(EXIT_FAILURE);
-	} else {
-		from_json_to_legacy(&cfg);
+		switch (val) {
+		case 'f':
+			snprintf(config_file, sizeof(config_file), "%s", optarg);
+			break;
+		case 'l':
+		case 'd':
+			/* ignore, legacy options */
+			break;
+		case '?':
+			return EXIT_FAILURE;
+		default:
+			break;
+		}
 	}
 
-	socket_rest = og_socket_server_init("8888");
+	if (parse_json_config(config_file, &cfg) < 0)
+		return EXIT_FAILURE;
+
+	from_json_to_legacy(&cfg);
+
+	socket_rest = og_socket_server_init(cfg.rest.port);
 	if (socket_rest < 0) {
 		syslog(LOG_ERR, "Cannot open REST API server socket\n");
 		exit(EXIT_FAILURE);

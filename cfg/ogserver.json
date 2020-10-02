@@ -13,5 +13,8 @@
 	},
 	"wol" : {
 		"interface" : "lo"
+	},
+	"repository" : {
+		"directory" : "/opt/opengnsys/images"
 	}
 }
