@@ -13,6 +13,7 @@
 #include "dbi.h"
 #include <syslog.h>
 #include <string.h>
+#include <stdio.h>
 
 struct og_dbi *og_dbi_open(struct og_dbi_config *config)
 {
@@ -93,36 +94,32 @@ int og_dbi_get_computer_info(struct og_dbi *dbi, struct og_computer *computer,
 	}
 
 	computer->id = dbi_result_get_uint(result, "idordenador");
-	computer->name = strdup(dbi_result_get_string(result, "nombreordenador"));
-	computer->serial_number = strdup(dbi_result_get_string(result, "numserie"));
-	computer->ip = strdup(dbi_result_get_string(result, "ip"));
-	computer->mac = strdup(dbi_result_get_string(result, "mac"));
+	snprintf(computer->name, sizeof(computer->name), "%s",
+		 dbi_result_get_string(result, "nombreordenador"));
+	snprintf(computer->serial_number, sizeof(computer->serial_number), "%s",
+		 dbi_result_get_string(result, "numserie"));
+	snprintf(computer->ip, sizeof(computer->ip), "%s",
+		 dbi_result_get_string(result, "ip"));
+	snprintf(computer->mac, sizeof(computer->mac), "%s",
+		 dbi_result_get_string(result, "mac"));
 	computer->room = dbi_result_get_uint(result, "idaula");
 	computer->hardware_id = dbi_result_get_uint(result, "idperfilhard");
 	computer->repo_id = dbi_result_get_uint(result, "idrepositorio");
-	computer->netmask = strdup(dbi_result_get_string(result, "mascara"));
-	computer->boot = strdup(dbi_result_get_string(result, "arranque"));
-	computer->netiface = strdup(dbi_result_get_string(result, "netiface"));
-	computer->netdriver = strdup(dbi_result_get_string(result, "netdriver"));
+	snprintf(computer->netmask, sizeof(computer->netmask), "%s",
+		 dbi_result_get_string(result, "mascara"));
+	snprintf(computer->boot, sizeof(computer->boot), "%s",
+		 dbi_result_get_string(result, "arranque"));
+	snprintf(computer->netiface, sizeof(computer->netiface), "%s",
+		 dbi_result_get_string(result, "netiface"));
+	snprintf(computer->netdriver, sizeof(computer->netdriver), "%s",
+		 dbi_result_get_string(result, "netdriver"));
 	computer->procedure_id = dbi_result_get_uint(result, "idproautoexec");
-	computer->livedir = strdup(dbi_result_get_string(result, "oglivedir"));
+	snprintf(computer->livedir, sizeof(computer->livedir), "%s",
+		 dbi_result_get_string(result, "oglivedir"));
 	computer->remote = dbi_result_get_uint(result, "inremotepc") != 0;
 	computer->maintenance = dbi_result_get_uint(result, "maintenance") != 0;
 
 	dbi_result_free(result);
 
 	return 0;
-}
-
-void og_dbi_free_computer_info(struct og_computer *computer)
-{
-	free(computer->serial_number);
-	free(computer->netdriver);
-	free(computer->netiface);
-	free(computer->netmask);
-	free(computer->livedir);
-	free(computer->name);
-	free(computer->boot);
-	free(computer->mac);
-	free(computer->ip);
 }

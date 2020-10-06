@@ -1214,7 +1214,6 @@ static int og_cmd_get_client_info(json_t *element,
 	json_object_set_new(root, "id", json_integer(computer.id));
 	json_object_set_new(root, "ip", json_string(computer.ip));
 
-	og_dbi_free_computer_info(&computer);
 	json_dump_callback(root, og_json_dump_clients, &og_buffer, 0);
 	json_decref(root);
 	return 0;
@@ -1224,8 +1223,8 @@ static int og_cmd_post_client_add(json_t *element,
 				  struct og_msg_params *params,
 				  char *buffer_reply)
 {
-	const char *key, *str, *msglog;
 	struct og_computer computer = {};
+	const char *key, *msglog;
 	struct og_dbi *dbi;
 	dbi_result result;
 	json_t *value;
@@ -1233,42 +1232,51 @@ static int og_cmd_post_client_add(json_t *element,
 
 	json_object_foreach(element, key, value) {
 		if (!strcmp(key, "serial_number")) {
-			err = og_json_parse_string(value, &str);
-			computer.serial_number = strdup(str);
+			err = og_json_parse_string_copy(value,
+							computer.serial_number,
+							sizeof(computer.serial_number));
 		} else if (!strcmp(key, "hardware_id")) {
 			err = og_json_parse_uint(value, &computer.hardware_id);
 		} else if (!strcmp(key, "netdriver")) {
-			err = og_json_parse_string(value, &str);
-			computer.netdriver = strdup(str);
+			err = og_json_parse_string_copy(value,
+							computer.netdriver,
+							sizeof(computer.netdriver));
 		} else if (!strcmp(key, "maintenance")) {
 			err = og_json_parse_bool(value, &computer.maintenance);
 		} else if (!strcmp(key, "netiface")) {
-			err = og_json_parse_string(value, &str);
-			computer.netiface = strdup(str);
+			err = og_json_parse_string_copy(value,
+							computer.netiface,
+							sizeof(computer.netiface));
 		} else if (!strcmp(key, "repo_id")) {
 			err = og_json_parse_uint(value, &computer.repo_id);
 		} else if (!strcmp(key, "livedir")) {
-			err = og_json_parse_string(value, &str);
-			computer.livedir = strdup(str);
+			err = og_json_parse_string_copy(value,
+							computer.livedir,
+							sizeof(computer.livedir));
 		} else if (!strcmp(key, "netmask")) {
-			err = og_json_parse_string(value, &str);
-			computer.netmask = strdup(str);
+			err = og_json_parse_string_copy(value,
+							computer.netmask,
+							sizeof(computer.netmask));
 		} else if (!strcmp(key, "remote")) {
 			err = og_json_parse_bool(value, &computer.remote);
 		} else if (!strcmp(key, "room")) {
 			err = og_json_parse_uint(value, &computer.room);
 		} else if (!strcmp(key, "name")) {
-			err = og_json_parse_string(value, &str);
-			computer.name = strdup(str);
+			err = og_json_parse_string_copy(value,
+							computer.name,
+							sizeof(computer.name));
 		} else if (!strcmp(key, "boot")) {
-			err = og_json_parse_string(value, &str);
-			computer.boot = strdup(str);
+			err = og_json_parse_string_copy(value,
+							computer.boot,
+							sizeof(computer.boot));
 		} else if (!strcmp(key, "mac")) {
-			err = og_json_parse_string(value, &str);
-			computer.mac = strdup(str);
+			err = og_json_parse_string_copy(value,
+							computer.mac,
+							sizeof(computer.mac));
 		} else if (!strcmp(key, "ip")) {
-			err = og_json_parse_string(value, &str);
-			computer.ip = strdup(str);
+			err = og_json_parse_string_copy(value,
+							computer.ip,
+							sizeof(computer.ip));
 		}
 
 		if (err < 0)
@@ -1279,7 +1287,6 @@ static int og_cmd_post_client_add(json_t *element,
 	if (!dbi) {
 		syslog(LOG_ERR, "cannot open conection database (%s:%d)\n",
 		       __func__, __LINE__);
-		og_dbi_free_computer_info(&computer);
 		return -1;
 	}
 
@@ -1292,7 +1299,6 @@ static int og_cmd_post_client_add(json_t *element,
 		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
 		       __func__, __LINE__, msglog);
 		og_dbi_close(dbi);
-		og_dbi_free_computer_info(&computer);
 		return -1;
 	}
 
@@ -1301,7 +1307,6 @@ static int og_cmd_post_client_add(json_t *element,
 		       computer.ip);
 		dbi_result_free(result);
 		og_dbi_close(dbi);
-		og_dbi_free_computer_info(&computer);
 		return -1;
 	}
 	dbi_result_free(result);
@@ -1338,13 +1343,11 @@ static int og_cmd_post_client_add(json_t *element,
 		syslog(LOG_ERR, "failed to add client to database (%s:%d) %s\n",
 		       __func__, __LINE__, msglog);
 		og_dbi_close(dbi);
-		og_dbi_free_computer_info(&computer);
 		return -1;
 	}
 
 	dbi_result_free(result);
 	og_dbi_close(dbi);
-	og_dbi_free_computer_info(&computer);
 	return 0;
 }
 

@@ -23,10 +23,16 @@ void og_dbi_close(struct og_dbi *db);
 #define OG_DB_COMPUTER_NAME_MAXLEN	100
 #define OG_DB_CENTER_NAME_MAXLEN	100
 #define OG_DB_ROOM_NAME_MAXLEN		100
+#define OG_DB_SERIAL_NUMBER_MAXLEN	25
 #define OG_DB_IMAGE_NAME_MAXLEN 50
 #define OG_DB_FILESYSTEM_MAXLEN 16
+#define OG_DB_NETDRIVER_MAXLEN	30
+#define OG_DB_NETIFACE_MAXLEN	4
+#define OG_DB_LIVEDIR_MAXLEN	50
 #define OG_DB_INT8_MAXLEN	8
+#define OG_DB_BOOT_MAXLEN	30
 #define OG_DB_INT_MAXLEN	11
+#define OG_DB_MAC_MAXLEN	15
 #define OG_DB_IP_MAXLEN		15
 #define OG_DB_SMALLINT_MAXLEN	6
 
@@ -59,20 +65,19 @@ struct og_computer {
 	unsigned int	id;
 	bool		maintenance;
 	bool		remote;
-	char		*serial_number;
-	char		*netdriver;
-	char		*netiface;
-	char		*netmask;
-	char		*livedir;
-	char		*name;
-	char		*boot;
-	char		*mac;
-	char		*ip;
+	char		serial_number[OG_DB_SERIAL_NUMBER_MAXLEN + 1];
+	char		netdriver[OG_DB_NETDRIVER_MAXLEN + 1];
+	char		name[OG_DB_COMPUTER_NAME_MAXLEN + 1];
+	char		netiface[OG_DB_NETIFACE_MAXLEN + 1];
+	char		livedir[OG_DB_LIVEDIR_MAXLEN + 1];
+	char		netmask[OG_DB_IP_MAXLEN + 1];
+	char		boot[OG_DB_BOOT_MAXLEN + 1];
+	char		mac[OG_DB_MAC_MAXLEN + 1];
+	char		ip[OG_DB_IP_MAXLEN + 1];
 };
 
 struct in_addr;
 int og_dbi_get_computer_info(struct og_dbi *dbi, struct og_computer *computer,
 			     struct in_addr addr);
-void og_dbi_free_computer_info(struct og_computer *computer);
 
 #endif
