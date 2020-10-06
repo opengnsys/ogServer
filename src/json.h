@@ -5,6 +5,7 @@
 #include "schedule.h"
 
 int og_json_parse_string(json_t *element, const char **str);
+int og_json_parse_string_copy(json_t *element, char *str, size_t size);
 int og_json_parse_uint64(json_t *element, uint64_t *integer);
 int og_json_parse_uint(json_t *element, uint32_t *integer);
 int og_json_parse_bool(json_t *element, bool *value);

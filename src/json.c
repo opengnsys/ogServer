@@ -18,6 +18,21 @@ int og_json_parse_string(json_t *element, const char **str)
 	return 0;
 }
 
+int og_json_parse_string_copy(json_t *element, char *str, size_t size)
+{
+	const char *reference_str;
+	int err = 0;
+
+	err = og_json_parse_string(element, &reference_str);
+	if (err != 0)
+		return err;
+
+	err = snprintf(str, size, "%s", reference_str);
+	if (err >= size)
+		return -1;
+	return 0;
+}
+
 int og_json_parse_uint64(json_t *element, uint64_t *integer)
 {
 	if (json_typeof(element) != JSON_INTEGER)
