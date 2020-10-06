@@ -10,4 +10,4 @@ After=mysql.service
 WantedBy=multi-user.target
 
 [Service]
-ExecStart=/opt/opengnsys/sbin/ogserver -f /opt/opengnsys/etc/ogserver.cfg
+ExecStart=/opt/opengnsys/sbin/ogserver -f /opt/opengnsys/etc/ogserver.json
