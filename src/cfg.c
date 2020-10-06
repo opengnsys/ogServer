@@ -174,8 +174,7 @@ int parse_json_config(const char *filename, struct og_server_cfg *cfg)
 
 	if ((flags & OG_SERVER_CFG_REST) &&
 	    (flags & OG_SERVER_CFG_DB) &&
-	    (flags & OG_SERVER_CFG_WOL) &&
-	    (flags & OG_SERVER_CFG_REPO)) {
+	    (flags & OG_SERVER_CFG_WOL)) {
 		ret = 0;
 	} else {
 		syslog(LOG_ERR, "Missing attributes in json file");

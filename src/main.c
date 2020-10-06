@@ -25,8 +25,13 @@ static struct option og_server_opts[] = {
 };
 
 #define OG_SERVER_CFG_JSON	"/opt/opengnsys/cfg/ogserver.json"
+#define OG_SERVER_REPO_PATH	"/opt/opengnsys/images"
 
-struct og_server_cfg cfg;
+struct og_server_cfg cfg = {
+	.repo	= {
+		.dir	= OG_SERVER_REPO_PATH,
+	},
+};
 
 int main(int argc, char *argv[])
 {
