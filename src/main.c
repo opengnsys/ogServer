@@ -27,7 +27,7 @@ static struct option og_server_opts[] = {
 #define OG_SERVER_CFG_JSON	"/opt/opengnsys/cfg/ogserver.json"
 #define OG_SERVER_REPO_PATH	"/opt/opengnsys/images"
 
-struct og_server_cfg cfg = {
+struct og_server_cfg ogconfig = {
 	.repo	= {
 		.dir	= OG_SERVER_REPO_PATH,
 	},
@@ -66,12 +66,12 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (parse_json_config(config_file, &cfg) < 0)
+	if (parse_json_config(config_file, &ogconfig) < 0)
 		return EXIT_FAILURE;
 
-	from_json_to_legacy(&cfg);
+	from_json_to_legacy(&ogconfig);
 
-	socket_rest = og_socket_server_init(cfg.rest.port);
+	socket_rest = og_socket_server_init(ogconfig.rest.port);
 	if (socket_rest < 0) {
 		syslog(LOG_ERR, "Cannot open REST API server socket\n");
 		exit(EXIT_FAILURE);

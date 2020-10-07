@@ -1548,7 +1548,7 @@ struct og_image {
 static int og_get_image_stats(const char *name,
 			      struct stat *image_stats)
 {
-	const char *dir = cfg.repo.dir;
+	const char *dir = ogconfig.repo.dir;
 	char filename[PATH_MAX + 1];
 
 	snprintf(filename, sizeof(filename), "%s/%s", dir, name);
@@ -1561,7 +1561,7 @@ static int og_get_image_stats(const char *name,
 
 static json_t *og_json_disk_alloc()
 {
-	const char *dir = cfg.repo.dir;
+	const char *dir = ogconfig.repo.dir;
 	struct statvfs buffer;
 	json_t *disk_json;
 	int ret;
