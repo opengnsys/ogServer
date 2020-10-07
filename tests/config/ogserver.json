@@ -1,0 +1,20 @@
+{
+	"rest" : {
+		"ip" : "127.0.0.1",
+		"port" : "8888",
+		"api_token": "07b3bfe728954619b58f0107ad73acc1"
+	},
+	"database" : {
+		"ip": "127.0.0.1",
+		"port": 3306,
+		"name" : "test-db",
+		"user" : "test-db",
+		"pass" : "test-db"
+	},
+	"repository" : {
+		"directory": "/opt/opengnsys/images"
+	},
+	"wol" : {
+		"interface" : "lo"
+	}
+}
