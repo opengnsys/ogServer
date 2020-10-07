@@ -20,18 +20,6 @@
 #include <stdbool.h>
 #include "ogAdmLib.h"
 
-extern char auth_token[4096];
-extern char usuario[4096];
-extern char pasguor[4096];
-extern char catalog[4096];
-extern char datasource[4096];
-extern char interface[4096];
-extern char api_token[4096];
-extern char servidoradm[4096];
-extern char puerto[4096];
-extern char db_port[4096];
-
-struct og_client;
 struct og_dbi;
 
 bool actualizaConfiguracion(struct og_dbi *,char* ,int);

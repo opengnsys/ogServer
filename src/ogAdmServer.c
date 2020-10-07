@@ -23,26 +23,6 @@
 #include <jansson.h>
 #include <time.h>
 
-char usuario[4096]; // Usuario de acceso a la base de datos
-char pasguor[4096]; // Password del usuario
-char datasource[4096]; // Dirección IP del gestor de base de datos
-char catalog[4096]; // Nombre de la base de datos
-char interface[4096]; // Interface name
-char auth_token[4096]; // API token
-char servidoradm[4096]; // Dirección IP del servidor de administración
-char puerto[4096];    // Puerto de comunicación
-char db_port[4096];
-
-struct og_dbi_config dbi_config = {
-	.user		= usuario,
-	.passwd		= pasguor,
-	.host		= datasource,
-	.port		= db_port,
-	.database	= catalog,
-};
-
-#define OG_CMD_MAXLEN		64
-
 // ________________________________________________________________________________________________________
 // Función: actualizaConfiguracion
 //

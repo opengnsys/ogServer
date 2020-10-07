@@ -6,10 +6,10 @@
 
 struct og_dbi_config {
 	const char	*user;
-	const char	*passwd;
-	const char	*host;
+	const char	*pass;
+	const char	*ip;
 	const char	*port;
-	const char	*database;
+	const char	*name;
 };
 
 struct og_dbi {
@@ -53,8 +53,6 @@ struct og_legacy_partition {
 	char filesystem[OG_DB_FILESYSTEM_MAXLEN + 1];
 	char format[2]; /* Format is a boolean 0 or 1 => length is 2 */
 };
-
-extern struct og_dbi_config dbi_config;
 
 struct og_computer {
 	unsigned int	procedure_id;

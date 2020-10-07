@@ -18,6 +18,7 @@
 #include <sys/socket.h>
 #include <fcntl.h>
 #include "wol.h"
+#include "cfg.h"
 #include "ogAdmServer.h"
 
 int wol_socket_open(void)
@@ -73,7 +74,7 @@ bool wake_up_broadcast(int sd, struct sockaddr_in *client,
 	for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
 		if (ifa->ifa_addr == NULL ||
 		    ifa->ifa_addr->sa_family != AF_INET ||
-		    strcmp(ifa->ifa_name, interface) != 0)
+		    strcmp(ifa->ifa_name, ogconfig.wol.interface) != 0)
 			continue;
 
 		broadcast_addr =

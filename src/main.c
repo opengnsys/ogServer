@@ -69,8 +69,6 @@ int main(int argc, char *argv[])
 	if (parse_json_config(config_file, &ogconfig) < 0)
 		return EXIT_FAILURE;
 
-	from_json_to_legacy(&ogconfig);
-
 	socket_rest = og_socket_server_init(ogconfig.rest.port);
 	if (socket_rest < 0) {
 		syslog(LOG_ERR, "Cannot open REST API server socket\n");

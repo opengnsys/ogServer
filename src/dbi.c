@@ -30,11 +30,11 @@ struct og_dbi *og_dbi_open(struct og_dbi_config *config)
 		return NULL;
 	}
 
-	dbi_conn_set_option(dbi->conn, "host", config->host);
+	dbi_conn_set_option(dbi->conn, "host", config->ip);
 	dbi_conn_set_option(dbi->conn, "port", config->port);
 	dbi_conn_set_option(dbi->conn, "username", config->user);
-	dbi_conn_set_option(dbi->conn, "password", config->passwd);
-	dbi_conn_set_option(dbi->conn, "dbname", config->database);
+	dbi_conn_set_option(dbi->conn, "password", config->pass);
+	dbi_conn_set_option(dbi->conn, "dbname", config->name);
 	dbi_conn_set_option(dbi->conn, "encoding", "UTF-8");
 
 	if (dbi_conn_connect(dbi->conn) < 0) {

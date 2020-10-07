@@ -7,6 +7,7 @@
  */
 
 #include "ogAdmServer.h"
+#include "cfg.h"
 #include "dbi.h"
 #include "utils.h"
 #include "list.h"
@@ -129,7 +130,7 @@ static int og_resp_hardware(json_t *data, struct og_client *cli)
 		return -1;
 	}
 
-	dbi = og_dbi_open(&dbi_config);
+	dbi = og_dbi_open(&ogconfig.db);
 	if (!dbi) {
 		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
 		       __func__, __LINE__);
@@ -197,7 +198,7 @@ static int og_resp_software(json_t *data, struct og_client *cli)
 		return -1;
 	}
 
-	dbi = og_dbi_open(&dbi_config);
+	dbi = og_dbi_open(&ogconfig.db);
 	if (!dbi) {
 		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
 		       __func__, __LINE__);
@@ -265,7 +266,7 @@ static int og_dbi_queue_autorun(uint32_t computer_id, uint32_t proc_id)
 	};
 	struct og_dbi *dbi;
 
-	dbi = og_dbi_open(&dbi_config);
+	dbi = og_dbi_open(&ogconfig.db);
 	if (!dbi) {
 		syslog(LOG_ERR, "cannot open connection database "
 				"(%s:%d)\n", __func__, __LINE__);
@@ -343,7 +344,7 @@ static int og_resp_refresh(json_t *data, struct og_client *cli)
 			 partitions[i].used_size);
 	}
 
-	dbi = og_dbi_open(&dbi_config);
+	dbi = og_dbi_open(&ogconfig.db);
 	if (!dbi) {
 		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
 				  __func__, __LINE__);
@@ -460,7 +461,7 @@ static int og_resp_image_create(json_t *data, struct og_client *cli)
 		return -1;
 	}
 
-	dbi = og_dbi_open(&dbi_config);
+	dbi = og_dbi_open(&ogconfig.db);
 	if (!dbi) {
 		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
 		       __func__, __LINE__);
@@ -560,7 +561,7 @@ static int og_resp_image_restore(json_t *data, struct og_client *cli)
 		return -1;
 	}
 
-	dbi = og_dbi_open(&dbi_config);
+	dbi = og_dbi_open(&ogconfig.db);
 	if (!dbi) {
 		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
 		       __func__, __LINE__);

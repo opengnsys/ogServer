@@ -985,7 +985,7 @@ static int og_cmd_post_modes(json_t *element, struct og_msg_params *params)
 	}
 	ips_str[ips_str_len - 1] = '\0';
 
-	dbi = og_dbi_open(&dbi_config);
+	dbi = og_dbi_open(&ogconfig.db);
 	if (!dbi) {
 		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
 		       __func__, __LINE__);
@@ -1066,7 +1066,7 @@ static int og_cmd_get_client_setup(json_t *element,
 	}
 	json_object_set_new(root, "partitions", partitions_array);
 
-	dbi = og_dbi_open(&dbi_config);
+	dbi = og_dbi_open(&ogconfig.db);
 	if (!dbi) {
 		json_decref(root);
 		syslog(LOG_ERR, "cannot open conection database (%s:%d)\n",
@@ -1177,7 +1177,7 @@ static int og_cmd_get_client_info(json_t *element,
 	if (inet_aton(params->ips_array[0], &addr) == 0)
 		return -1;
 
-	dbi = og_dbi_open(&dbi_config);
+	dbi = og_dbi_open(&ogconfig.db);
 	if (!dbi) {
 		syslog(LOG_ERR, "cannot open conection database (%s:%d)\n",
 		       __func__, __LINE__);
@@ -1283,7 +1283,7 @@ static int og_cmd_post_client_add(json_t *element,
 			break;
 	}
 
-	dbi = og_dbi_open(&dbi_config);
+	dbi = og_dbi_open(&ogconfig.db);
 	if (!dbi) {
 		syslog(LOG_ERR, "cannot open conection database (%s:%d)\n",
 		       __func__, __LINE__);
@@ -1434,7 +1434,7 @@ static int og_cmd_get_hardware(json_t *element, struct og_msg_params *params,
 		return -1;
 	}
 
-	dbi = og_dbi_open(&dbi_config);
+	dbi = og_dbi_open(&ogconfig.db);
 	if (!dbi) {
 		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
 		       __func__, __LINE__);
@@ -1638,7 +1638,7 @@ static int og_cmd_images(char *buffer_reply)
 
 	json_object_set_new(root, "images", images);
 
-	dbi = og_dbi_open(&dbi_config);
+	dbi = og_dbi_open(&ogconfig.db);
 	if (!dbi) {
 		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
 		       __func__, __LINE__);
@@ -2556,7 +2556,7 @@ int og_dbi_update_action(uint32_t id, bool success)
 	if (!id)
 		return 0;
 
-	dbi = og_dbi_open(&dbi_config);
+	dbi = og_dbi_open(&ogconfig.db);
 	if (!dbi) {
 		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
 		       __func__, __LINE__);
@@ -2598,7 +2598,7 @@ void og_schedule_run(unsigned int task_id, unsigned int schedule_id,
 	struct og_dbi *dbi;
 	unsigned int i;
 
-	dbi = og_dbi_open(&dbi_config);
+	dbi = og_dbi_open(&ogconfig.db);
 	if (!dbi) {
 		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
 		       __func__, __LINE__);
@@ -2673,7 +2673,7 @@ static int og_cmd_task_post(json_t *element, struct og_msg_params *params)
 	if (!og_msg_params_validate(params, OG_REST_PARAM_TASK))
 		return -1;
 
-	dbi = og_dbi_open(&dbi_config);
+	dbi = og_dbi_open(&ogconfig.db);
 	if (!dbi) {
 		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
 			   __func__, __LINE__);
@@ -2863,7 +2863,7 @@ static int og_cmd_scope_get(json_t *element, struct og_msg_params *params,
 	}
 	json_object_set_new(root, "scope", array);
 
-	dbi = og_dbi_open(&dbi_config);
+	dbi = og_dbi_open(&ogconfig.db);
 	if (!dbi) {
 		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
 		       __func__, __LINE__);
@@ -2893,7 +2893,7 @@ int og_dbi_schedule_get(void)
 	const char *msglog;
 	dbi_result result;
 
-	dbi = og_dbi_open(&dbi_config);
+	dbi = og_dbi_open(&ogconfig.db);
 	if (!dbi) {
 		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
 		       __func__, __LINE__);
@@ -3156,7 +3156,7 @@ static int og_task_schedule_create(struct og_msg_params *params)
 	else
 		return -1;
 
-	dbi = og_dbi_open(&dbi_config);
+	dbi = og_dbi_open(&ogconfig.db);
 	if (!dbi) {
 		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
 		       __func__, __LINE__);
@@ -3257,7 +3257,7 @@ static int og_cmd_schedule_update(json_t *element, struct og_msg_params *params)
 					    OG_REST_PARAM_TIME_AM_PM))
 		return -1;
 
-	dbi = og_dbi_open(&dbi_config);
+	dbi = og_dbi_open(&ogconfig.db);
 	if (!dbi) {
 		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
 			   __func__, __LINE__);
@@ -3302,7 +3302,7 @@ static int og_cmd_schedule_delete(json_t *element, struct og_msg_params *params)
 	if (!og_msg_params_validate(params, OG_REST_PARAM_ID))
 		return -1;
 
-	dbi = og_dbi_open(&dbi_config);
+	dbi = og_dbi_open(&ogconfig.db);
 	if (!dbi) {
 		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
 			   __func__, __LINE__);
@@ -3348,7 +3348,7 @@ static int og_cmd_schedule_get(json_t *element, struct og_msg_params *params,
 		}
 	}
 
-	dbi = og_dbi_open(&dbi_config);
+	dbi = og_dbi_open(&ogconfig.db);
 	if (!dbi) {
 		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
 			   __func__, __LINE__);
@@ -3468,7 +3468,7 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 
 	body = strstr(cli->buf, "\r\n\r\n") + 4;
 
-	if (strcmp(cli->auth_token, auth_token)) {
+	if (strcmp(cli->auth_token, ogconfig.rest.api_token)) {
 		syslog(LOG_ERR, "wrong Authentication key\n");
 		return og_client_not_authorized(cli);
 	}

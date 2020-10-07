@@ -1,14 +1,11 @@
 #ifndef _OG_SERVER_CFG_H
 #define _OG_SERVER_CFG_H
 
+#include <jansson.h>
+#include "dbi.h"
+
 struct og_server_cfg {
-        struct {
-                const char *user;
-                const char *pass;
-                const char *ip;
-                unsigned int port;
-                const char *name;
-        } db;
+        struct og_dbi_config	db;
         struct {
                 const char      *ip;
                 const char      *port;
@@ -24,7 +21,6 @@ struct og_server_cfg {
 };
 
 int parse_json_config(const char *filename, struct og_server_cfg *cfg);
-void from_json_to_legacy(struct og_server_cfg *cfg);
 
 extern struct og_server_cfg ogconfig;
 
