@@ -78,37 +78,6 @@ char* escaparCadena(char *cadena)
 }
 
 // ________________________________________________________________________________________________________
-// Función: igualIP
-//
-//	Descripción:
-//		Comprueba si una cadena con una dirección IP está incluida en otra que	contienen varias direcciones ipes
-//		separadas por punto y coma
-//	Parámetros:
-//		- cadenaiph: Cadena de direcciones IPES
-//		- ipcliente: Cadena de la IP a buscar
-//	Devuelve:
-//		TRUE: Si el proceso es correcto
-//		FALSE: En caso de ocurrir algún error
-// ________________________________________________________________________________________________________
-BOOLEAN contieneIP(char *cadenaiph,char *ipcliente)
-{
-	char *posa,*posb;
-	int lon, i;
-
-	posa=strstr(cadenaiph,ipcliente);
-	if(posa==NULL) return(FALSE); // No existe la IP en la cadena
-	posb=posa; // Iguala direcciones
-	for (i = 0; i < LONIP; i++) {
-		if(*posb==';') break;
-		if(*posb=='\0') break;
-		if(*posb=='\r') break;
-		posb++;
-	}
-	lon=strlen(ipcliente);
-	if((posb-posa)==lon) return(TRUE); // IP encontrada
-	return(FALSE);
-}
-// ________________________________________________________________________________________________________
 // Función: rTrim
 //
 //		 Descripción:
