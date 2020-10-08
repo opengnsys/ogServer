@@ -1351,6 +1351,56 @@ static int og_cmd_post_client_add(json_t *element,
 	return 0;
 }
 
+static int og_cmd_post_client_delete(json_t *element,
+				     struct og_msg_params *params)
+{
+	const char *key, *msglog;
+	struct og_dbi *dbi;
+	dbi_result result;
+	unsigned int i;
+	json_t *value;
+	int err = 0;
+
+	json_object_foreach(element, key, value) {
+		if (!strcmp(key, "clients"))
+			err = og_json_parse_clients(value, params);
+		else
+			err = -1;
+
+		if (err < 0)
+			break;
+	}
+
+	if (!og_msg_params_validate(params, OG_REST_PARAM_ADDR))
+		return -1;
+
+	dbi = og_dbi_open(&ogconfig.db);
+	if (!dbi) {
+		syslog(LOG_ERR, "cannot open conection database (%s:%d)\n",
+		       __func__, __LINE__);
+		return -1;
+	}
+
+	for (i = 0; i < params->ips_array_len; i++) {
+		result = dbi_conn_queryf(dbi->conn,
+					 "DELETE FROM ordenadores WHERE ip='%s'",
+					 params->ips_array[i]);
+
+		if (!result) {
+			dbi_conn_error(dbi->conn, &msglog);
+			syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
+			       __func__, __LINE__, msglog);
+			og_dbi_close(dbi);
+			return -1;
+		}
+
+		dbi_result_free(result);
+	}
+
+	og_dbi_close(dbi);
+	return 0;
+}
+
 static int og_cmd_stop(json_t *element, struct og_msg_params *params)
 {
 	const char *key;
@@ -3536,6 +3586,17 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 		}
 
 		err = og_cmd_post_client_add(root, &params, buf_reply);
+	} else if (!strncmp(cmd, "client/delete", strlen("client/delete"))) {
+		if (method != OG_METHOD_POST)
+			return og_client_method_not_found(cli);
+
+		if (!root) {
+			syslog(LOG_ERR,
+			       "command client delete with no payload\n");
+			return og_client_bad_request(cli);
+		}
+
+		err = og_cmd_post_client_delete(root, &params);
 	} else if (!strncmp(cmd, "wol", strlen("wol"))) {
 		if (method != OG_METHOD_POST)
 			return og_client_method_not_found(cli);
