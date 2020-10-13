@@ -1589,12 +1589,6 @@ static int og_cmd_software(json_t *element, struct og_msg_params *params)
 
 #define OG_IMAGE_TYPE_MAXLEN	4
 
-struct og_image {
-	const char		*filename;
-	uint64_t		datasize;
-	struct stat		image_stats;
-};
-
 static int og_get_image_stats(const char *name,
 			      struct stat *image_stats)
 {
@@ -1744,7 +1738,10 @@ static int og_cmd_images(char *buffer_reply)
 
 static int og_cmd_create_image(json_t *element, struct og_msg_params *params)
 {
+	char new_image_id[OG_DB_INT_MAXLEN + 1];
+	struct og_image image = {};
 	json_t *value, *clients;
+	struct og_dbi *dbi;
 	const char *key;
 	int err = 0;
 
@@ -1772,7 +1769,16 @@ static int og_cmd_create_image(json_t *element, struct og_msg_params *params)
 		} else if (!strcmp(key, "code")) {
 			err = og_json_parse_string(value, &params->code);
 			params->flags |= OG_REST_PARAM_CODE;
+		} else if (!strcmp(key, "description")) {
+			err = og_json_parse_string_copy(value,
+							image.description,
+							sizeof(image.description));
+		} else if (!strcmp(key, "group_id")) {
+			err = og_json_parse_uint64(value, &image.group_id);
+		} else if (!strcmp(key, "center_id")) {
+			err = og_json_parse_uint64(value, &image.center_id);
 		}
+
 
 		if (err < 0)
 			break;
@@ -1786,6 +1792,28 @@ static int og_cmd_create_image(json_t *element, struct og_msg_params *params)
 					    OG_REST_PARAM_NAME |
 					    OG_REST_PARAM_REPO))
 		return -1;
+
+	/* If there is a description, this means the image is not in the DB. */
+	if (image.description[0]) {
+		snprintf(image.name, sizeof(image.name), "%s", params->name);
+
+		dbi = og_dbi_open(&ogconfig.db);
+		if (!dbi) {
+			syslog(LOG_ERR,
+			       "cannot open connection database (%s:%d)\n",
+			       __func__, __LINE__);
+			return -1;
+		}
+
+		err = og_dbi_add_image(dbi, &image);
+
+		og_dbi_close(dbi);
+		if (err < 0)
+			return err;
+
+		snprintf(new_image_id, sizeof(new_image_id), "%u", err);
+		params->id = new_image_id;
+	}
 
 	clients = json_copy(element);
 	json_object_del(clients, "clients");

@@ -123,3 +123,39 @@ int og_dbi_get_computer_info(struct og_dbi *dbi, struct og_computer *computer,
 
 	return 0;
 }
+
+#define OG_UNASSIGNED_SW_ID 0
+#define OG_DEFAULT_REPO_ID 1
+#define OG_IMAGE_DEFAULT_TYPE 1 /* monolithic */
+
+int og_dbi_add_image(struct og_dbi *dbi, const struct og_image *image)
+{
+	const char *msglog;
+	dbi_result result;
+
+	result = dbi_conn_queryf(dbi->conn,
+				 "INSERT INTO imagenes (nombreca, "
+				 "descripcion, "
+				 "idperfilsoft, "
+				 "idcentro, "
+				 "comentarios, "
+				 "grupoid, "
+				 "idrepositorio, "
+				 "tipo, "
+				 "ruta) "
+				 "VALUES ('%s', '%s', %u, %lu, '', %u, %lu, %u, '')",
+				 image->name, image->description,
+				 OG_UNASSIGNED_SW_ID, image->center_id,
+				 image->group_id, OG_DEFAULT_REPO_ID,
+				 OG_IMAGE_DEFAULT_TYPE);
+
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR, "failed to add client to database (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		return -1;
+	}
+
+	dbi_result_free(result);
+	return dbi_conn_sequence_last(dbi->conn, NULL);
+}

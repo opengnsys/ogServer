@@ -3,6 +3,7 @@
 
 #include <dbi/dbi.h>
 #include <stdbool.h>
+#include <sys/stat.h>
 
 struct og_dbi_config {
 	const char	*user;
@@ -24,6 +25,7 @@ void og_dbi_close(struct og_dbi *db);
 #define OG_DB_CENTER_NAME_MAXLEN	100
 #define OG_DB_ROOM_NAME_MAXLEN		100
 #define OG_DB_SERIAL_NUMBER_MAXLEN	25
+#define OG_DB_IMAGE_DESCRIPTION_MAXLEN 	250
 #define OG_DB_IMAGE_NAME_MAXLEN 50
 #define OG_DB_FILESYSTEM_MAXLEN 16
 #define OG_DB_NETDRIVER_MAXLEN	30
@@ -44,6 +46,16 @@ struct og_image_legacy {
 	char part[OG_DB_SMALLINT_MAXLEN + 1];
 	char disk[OG_DB_SMALLINT_MAXLEN + 1];
 	char code[OG_DB_INT8_MAXLEN + 1];
+};
+
+struct og_image {
+	char name[OG_DB_IMAGE_NAME_MAXLEN + 1];
+	char description[OG_DB_IMAGE_DESCRIPTION_MAXLEN + 1];
+	const char *filename;
+	uint64_t center_id;
+	uint64_t datasize;
+	uint64_t group_id;
+	struct stat image_stats;
 };
 
 struct og_legacy_partition {
@@ -77,5 +89,6 @@ struct og_computer {
 struct in_addr;
 int og_dbi_get_computer_info(struct og_dbi *dbi, struct og_computer *computer,
 			     struct in_addr addr);
+int og_dbi_add_image(struct og_dbi *dbi, const struct og_image *image);
 
 #endif
