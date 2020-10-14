@@ -1595,7 +1595,7 @@ static int og_get_image_stats(const char *name,
 	const char *dir = ogconfig.repo.dir;
 	char filename[PATH_MAX + 1];
 
-	snprintf(filename, sizeof(filename), "%s/%s", dir, name);
+	snprintf(filename, sizeof(filename), "%s/%s.img", dir, name);
 	if (stat(filename, image_stats) < 0) {
 		syslog(LOG_ERR, "%s image does not exists", name);
 		return -1;
@@ -1646,8 +1646,8 @@ static json_t *og_json_image_alloc(struct og_image *image)
 	modified = ctime(&image->image_stats.st_mtime);
 	modified[strlen(modified) - 1] = '\0';
 
-	json_object_set_new(image_json, "filename",
-			    json_string(image->filename));
+	json_object_set_new(image_json, "name",
+			    json_string(image->name));
 	json_object_set_new(image_json, "datasize",
 			    json_integer(image->datasize));
 	json_object_set_new(image_json, "size",
@@ -1656,6 +1656,12 @@ static json_t *og_json_image_alloc(struct og_image *image)
 			    json_string(modified));
 	json_object_set_new(image_json, "permissions",
 			    json_string(perms_string));
+	json_object_set_new(image_json, "software_id",
+			    json_integer(image->software_id));
+	json_object_set_new(image_json, "type",
+			    json_integer(image->type));
+	json_object_set_new(image_json, "id",
+			    json_integer(image->id));
 
 	return image_json;
 }
@@ -1693,17 +1699,23 @@ static int og_cmd_images(char *buffer_reply)
 	result = dbi_conn_queryf(dbi->conn,
 				 "SELECT i.nombreca, o.nombreordenador, "
 				 "       i.clonator, i.compressor, "
-				 "       i.filesystem, i.datasize "
+				 "       i.filesystem, i.datasize, "
+				 "       i.idperfilsoft, i.tipo, "
+				 "       i.idimagen "
 				 "FROM imagenes i "
 				 "LEFT JOIN ordenadores o "
 				 "ON i.idordenador = o.idordenador");
 
 	while (dbi_result_next_row(result)) {
 		image = (struct og_image){0};
-		image.filename = dbi_result_get_string(result, "nombreca");
 		image.datasize = dbi_result_get_ulonglong(result, "datasize");
+		image.software_id = dbi_result_get_ulonglong(result, "idperfilsoft");
+		image.type = dbi_result_get_ulonglong(result, "tipo");
+		image.id = dbi_result_get_ulonglong(result, "idimagen");
+		snprintf(image.name, sizeof(image.name), "%s",
+			 dbi_result_get_string(result, "nombreca"));
 
-		if (og_get_image_stats(image.filename, &image.image_stats)) {
+		if (og_get_image_stats(image.name, &image.image_stats)) {
 			continue;
 		}
 

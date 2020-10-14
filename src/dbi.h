@@ -51,10 +51,12 @@ struct og_image_legacy {
 struct og_image {
 	char name[OG_DB_IMAGE_NAME_MAXLEN + 1];
 	char description[OG_DB_IMAGE_DESCRIPTION_MAXLEN + 1];
-	const char *filename;
+	uint64_t software_id;
 	uint64_t center_id;
 	uint64_t datasize;
 	uint64_t group_id;
+	uint64_t type;
+	uint64_t id;
 	struct stat image_stats;
 };
 
