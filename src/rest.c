@@ -1587,6 +1587,97 @@ static int og_cmd_software(json_t *element, struct og_msg_params *params)
 	return og_send_request(OG_METHOD_POST, OG_CMD_SOFTWARE, params, clients);
 }
 
+static int og_cmd_get_software(json_t *element, struct og_msg_params *params,
+			       char *buffer_reply)
+{
+	json_t *value, *software, *root;
+	const char *key, *msglog, *name;
+	uint64_t disk, partition;
+	uint64_t flags = 0;
+	struct og_dbi *dbi;
+	dbi_result result;
+	int err = 0;
+
+	struct og_buffer og_buffer = {
+		.data = buffer_reply
+	};
+
+	if (json_typeof(element) != JSON_OBJECT)
+		return -1;
+
+	json_object_foreach(element, key, value) {
+		if (!strcmp(key, "client")) {
+			err = og_json_parse_clients(value, params);
+		} else if (!strcmp(key, "disk")) {
+			err = og_json_parse_uint64(value, &disk);
+			flags |= OG_REST_PARAM_DISK;
+		} else if (!strcmp(key, "partition")) {
+			err = og_json_parse_uint64(value, &partition);
+			flags |= OG_REST_PARAM_PARTITION;
+		}
+
+		if (err < 0)
+			break;
+	}
+
+	if (!og_msg_params_validate(params, OG_REST_PARAM_ADDR) ||
+	    !og_flags_validate(flags, OG_REST_PARAM_DISK |
+				      OG_REST_PARAM_PARTITION))
+		return -1;
+
+	dbi = og_dbi_open(&ogconfig.db);
+	if (!dbi) {
+		syslog(LOG_ERR, "cannot open conection database (%s:%d)\n",
+		       __func__, __LINE__);
+		return -1;
+	}
+
+	result = dbi_conn_queryf(dbi->conn,
+				 "SELECT s.descripcion "
+				 "FROM softwares s "
+				 "INNER JOIN perfilessoft_softwares pss "
+				 "ON s.idsoftware = pss.idsoftware "
+				 "INNER JOIN ordenadores_particiones op "
+				 "ON pss.idperfilsoft = op.idperfilsoft "
+				 "INNER JOIN ordenadores o "
+				 "ON o.idordenador = op.idordenador "
+				 "WHERE o.ip='%s' AND "
+				 "      op.numdisk=%lu AND "
+				 "      op.numpar=%lu",
+				 params->ips_array[0], disk, partition);
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		return -1;
+	}
+	software = json_array();
+	if (!software) {
+		dbi_result_free(result);
+		og_dbi_close(dbi);
+		return -1;
+	}
+
+	while (dbi_result_next_row(result)) {
+		name = dbi_result_get_string(result, "descripcion");
+		json_array_append_new(software, json_string(name));
+	}
+
+	dbi_result_free(result);
+	og_dbi_close(dbi);
+
+	root = json_object();
+	if (!root) {
+		json_decref(software);
+		return -1;
+	}
+	json_object_set_new(root, "software", software);
+
+	json_dump_callback(root, og_json_dump_clients, &og_buffer, 0);
+	json_decref(root);
+	return 0;
+}
+
 #define OG_IMAGE_TYPE_MAXLEN	4
 
 static int og_get_image_stats(const char *name,
@@ -3742,14 +3833,18 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 		else if (method == OG_METHOD_POST)
 			err = og_cmd_hardware(root, &params);
 	} else if (!strncmp(cmd, "software", strlen("software"))) {
-		if (method != OG_METHOD_POST)
+		if (method != OG_METHOD_POST && method != OG_METHOD_GET)
 			return og_client_method_not_found(cli);
 
 		if (!root) {
 			syslog(LOG_ERR, "command software with no payload\n");
 			return og_client_bad_request(cli);
 		}
-		err = og_cmd_software(root, &params);
+
+		if (method == OG_METHOD_POST)
+			err = og_cmd_software(root, &params);
+		else
+			err = og_cmd_get_software(root, &params, buf_reply);
 	} else if (!strncmp(cmd, "images", strlen("images"))) {
 		if (method != OG_METHOD_GET)
 			return og_client_method_not_found(cli);
