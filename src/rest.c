@@ -703,6 +703,99 @@ static int og_cmd_session(json_t *element, struct og_msg_params *params)
 	return og_send_request(OG_METHOD_POST, OG_CMD_SESSION, params, clients);
 }
 
+static int og_cmd_get_session(json_t *element, struct og_msg_params *params,
+			      char *buffer_reply)
+{
+	json_t *value, *root, *array, *item;
+	const char *key, *msglog, *os_name;
+	unsigned int disk, partition;
+	struct og_dbi *dbi;
+	dbi_result result;
+	int err = 0;
+
+	struct og_buffer og_buffer = {
+		.data = buffer_reply
+	};
+
+	json_object_foreach(element, key, value) {
+		if (!strcmp(key, "client"))
+			err = og_json_parse_clients(value, params);
+		else
+			err = -1;
+
+		if (err < 0)
+			return err;
+	}
+
+	if (!og_msg_params_validate(params, OG_REST_PARAM_ADDR))
+		return -1;
+
+	dbi = og_dbi_open(&ogconfig.db);
+	if (!dbi) {
+		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
+		       __func__, __LINE__);
+		return -1;
+	}
+
+	result = dbi_conn_queryf(dbi->conn,
+				 "SELECT op.numdisk, op.numpar, nom.nombreso "
+				 "FROM ordenadores o "
+				 "INNER JOIN ordenadores_particiones op "
+				 "    ON o.idordenador = op.idordenador "
+				 "INNER JOIN nombresos nom "
+				 "    ON op.idnombreso = nom.idnombreso "
+				 "WHERE o.ip = '%s'",
+				 params->ips_array[0]);
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		og_dbi_close(dbi);
+		return -1;
+	}
+
+	array = json_array();
+	if (!array) {
+		dbi_result_free(result);
+		og_dbi_close(dbi);
+		return -1;
+	}
+
+	while (dbi_result_next_row(result)) {
+		item = json_object();
+		if (!item) {
+			dbi_result_free(result);
+			og_dbi_close(dbi);
+			json_decref(array);
+			return -1;
+		}
+
+		disk = dbi_result_get_uint(result, "numdisk");
+		partition = dbi_result_get_uint(result, "numpar");
+		os_name = dbi_result_get_string(result, "nombreso");
+
+		json_object_set_new(item, "disk", json_integer(disk));
+		json_object_set_new(item, "partition", json_integer(partition));
+		json_object_set_new(item, "name", json_string(os_name));
+		json_array_append_new(array, item);
+	}
+
+	dbi_result_free(result);
+	og_dbi_close(dbi);
+
+	root = json_object();
+	if (!root){
+		json_decref(array);
+		return -1;
+	}
+
+	json_object_set_new(root, "sessions", array);
+
+	json_dump_callback(root, og_json_dump_clients, &og_buffer, 0);
+	json_decref(root);
+	return 0;
+}
+
 static int og_cmd_poweroff(json_t *element, struct og_msg_params *params)
 {
 	const char *key;
@@ -3746,14 +3839,18 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 
 		err = og_cmd_run_get(root, &params, buf_reply);
 	} else if (!strncmp(cmd, "session", strlen("session"))) {
-		if (method != OG_METHOD_POST)
+		if (method != OG_METHOD_POST && method != OG_METHOD_GET)
 			return og_client_method_not_found(cli);
 
 		if (!root) {
 			syslog(LOG_ERR, "command session with no payload\n");
 			return og_client_bad_request(cli);
 		}
-		err = og_cmd_session(root, &params);
+
+		if (method == OG_METHOD_POST)
+			err = og_cmd_session(root, &params);
+		else
+			err = og_cmd_get_session(root, &params, buf_reply);
 	} else if (!strncmp(cmd, "scopes", strlen("scopes"))) {
 		if (method != OG_METHOD_GET)
 			return og_client_method_not_found(cli);
