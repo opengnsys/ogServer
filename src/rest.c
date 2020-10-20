@@ -1452,8 +1452,6 @@ static int og_cmd_get_hardware(json_t *element, struct og_msg_params *params,
 {
 	const char *key, *msglog, *hw_item, *hw_type;
 	json_t *value, *root, *array, *item;
-	struct og_scope scope = {};
-	uint64_t flags = 0;
 	struct og_dbi *dbi;
 	dbi_result result;
 	int err = 0;
@@ -1463,26 +1461,17 @@ static int og_cmd_get_hardware(json_t *element, struct og_msg_params *params,
 	};
 
 	json_object_foreach(element, key, value) {
-		if (!strcmp(key, "scope")) {
-			err = og_json_parse_scope(value, &scope,
-						  OG_PARAM_SCOPE_ID |
-						  OG_PARAM_SCOPE_TYPE);
-			flags |= OG_REST_PARAM_SCOPE;
-		} else {
+		if (!strcmp(key, "client"))
+			err = og_json_parse_clients(value, params);
+		else
 			err = -1;
-		}
 
 		if (err < 0)
 			return err;
 	}
 
-	if (!og_flags_validate(flags, OG_REST_PARAM_SCOPE))
+	if (!og_msg_params_validate(params, OG_REST_PARAM_ADDR))
 		return -1;
-
-	if (strcmp(scope.type, "computer")) {
-		syslog(LOG_ERR, "incorrect scope type\n");
-		return -1;
-	}
 
 	dbi = og_dbi_open(&ogconfig.db);
 	if (!dbi) {
@@ -1501,8 +1490,8 @@ static int og_cmd_get_hardware(json_t *element, struct og_msg_params *params,
 				 "    ON perfileshard_hardwares.idperfilhard = ordenadores.idperfilhard "
 				 "INNER JOIN tipohardwares "
 				 "    ON hardwares.idtipohardware = tipohardwares.idtipohardware "
-				 "WHERE ordenadores.idordenador = %u",
-				 scope.id);
+				 "WHERE ordenadores.ip = '%s'",
+				 params->ips_array[0]);
 	if (!result) {
 		dbi_conn_error(dbi->conn, &msglog);
 		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
