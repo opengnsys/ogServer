@@ -28,7 +28,7 @@ class TestPostSessionMethods(unittest.TestCase):
 
     def test_get(self):
         returned = requests.get(self.url, headers=self.headers, json={ 'client': ['192.168.56.11'] })
-        self.assertEqual(returned.status_code, 405)
+        self.assertEqual(returned.status_code, 200)
 
 if __name__ == '__main__':
     unittest.main()
