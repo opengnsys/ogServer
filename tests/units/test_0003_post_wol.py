@@ -6,7 +6,7 @@ class TestPostWolMethods(unittest.TestCase):
     def setUp(self):
         self.url = 'http://localhost:8888/wol'
         self.headers = {'Authorization' : '07b3bfe728954619b58f0107ad73acc1'}
-        self.json = { 'type' : 'broadcast', 'clients' : [ { 'addr' : '192.168.2.1',
+        self.json = { 'type' : 'broadcast', 'clients' : [ { 'addr' : '192.168.2.1', 'netmask':'255.255.255.0',
             'mac' : '00AABBCCDD01' } ] }
 
     def test_post(self):
