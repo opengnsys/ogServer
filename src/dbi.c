@@ -103,6 +103,7 @@ int og_dbi_get_computer_info(struct og_dbi *dbi, struct og_computer *computer,
 	snprintf(computer->mac, sizeof(computer->mac), "%s",
 		 dbi_result_get_string(result, "mac"));
 	computer->room = dbi_result_get_uint(result, "idaula");
+	computer->center = dbi_result_get_uint(result, "idcentro");
 	computer->hardware_id = dbi_result_get_uint(result, "idperfilhard");
 	computer->repo_id = dbi_result_get_uint(result, "idrepositorio");
 	snprintf(computer->netmask, sizeof(computer->netmask), "%s",
