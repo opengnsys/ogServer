@@ -284,10 +284,10 @@ static int og_dbi_queue_autorun(uint32_t computer_id, uint32_t proc_id)
 static int og_resp_refresh(json_t *data, struct og_client *cli)
 {
 	struct og_partition partitions[OG_PARTITION_MAX] = {};
+	struct og_partition disks[OG_DISK_MAX] = {};
 	const char *serial_number = NULL;
 	struct og_computer computer = {};
-	struct og_partition disk_setup;
-	char cfg[1024] = {};
+	char cfg[4096] = {};
 	struct og_dbi *dbi;
 	const char *key;
 	unsigned int i;
@@ -300,9 +300,7 @@ static int og_resp_refresh(json_t *data, struct og_client *cli)
 
 	json_object_foreach(data, key, value) {
 		if (!strcmp(key, "disk_setup")) {
-			err = og_json_parse_partition(value,
-						      &disk_setup,
-						      OG_PARAMS_RESP_REFRESH);
+			err = og_json_parse_partition_array(value, disks);
 		} else if (!strcmp(key, "partition_setup")) {
 			err = og_json_parse_partition_array(value, partitions);
 		} else if (!strcmp(key, "serial_number")) {
@@ -318,16 +316,20 @@ static int og_resp_refresh(json_t *data, struct og_client *cli)
 	if (strlen(serial_number) > 0)
 		snprintf(cfg, sizeof(cfg), "ser=%s\n", serial_number);
 
-	if (!disk_setup.disk || !disk_setup.number || !disk_setup.code ||
-	    !disk_setup.filesystem || !disk_setup.os || !disk_setup.size ||
-	    !disk_setup.used_size)
-		return -1;
+	for (i = 0; i < OG_DISK_MAX; i++) {
+		if (!disks[i].disk || !disks[i].number ||
+		    !disks[i].code || !disks[i].filesystem ||
+		    !disks[i].os || !disks[i].size ||
+		    !disks[i].used_size)
+			continue;
 
-	snprintf(cfg + strlen(cfg), sizeof(cfg) - strlen(cfg),
-		 "disk=%s\tpar=%s\tcpt=%s\tfsi=%s\tsoi=%s\ttam=%s\tuso=%s\n",
-		 disk_setup.disk, disk_setup.number, disk_setup.code,
-		 disk_setup.filesystem, disk_setup.os, disk_setup.size,
-		 disk_setup.used_size);
+		snprintf(cfg + strlen(cfg), sizeof(cfg) - strlen(cfg),
+			 "disk=%s\tpar=%s\tcpt=%s\tfsi=%s\tsoi=%s\ttam=%s\tuso=%s\n",
+			 disks[i].disk, disks[i].number,
+			 disks[i].code, disks[i].filesystem,
+			 disks[i].os, disks[i].size,
+			 disks[i].used_size);
+	}
 
 	for (i = 0; i < OG_PARTITION_MAX; i++) {
 		if (!partitions[i].disk || !partitions[i].number ||

@@ -30,7 +30,8 @@ struct og_partition {
 	const char	*used_size;
 };
 
-#define OG_PARTITION_MAX	4
+#define OG_DISK_MAX		4
+#define OG_PARTITION_MAX	(4 * OG_DISK_MAX)
 
 int og_json_parse_partition(json_t *element, struct og_partition *part,
 			    uint64_t required_flags);
