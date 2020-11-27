@@ -3859,6 +3859,11 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 		if (method != OG_METHOD_GET)
 			return og_client_method_not_found(cli);
 
+		if (root) {
+			syslog(LOG_ERR, "command scopes with payload\n");
+			return og_client_bad_request(cli);
+		}
+
 		err = og_cmd_scope_get(root, &params, buf_reply);
 	} else if (!strncmp(cmd, "poweroff", strlen("poweroff"))) {
 		if (method != OG_METHOD_POST)
