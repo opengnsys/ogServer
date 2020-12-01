@@ -7,6 +7,7 @@ class TestPostSetupMethods(unittest.TestCase):
         self.url = 'http://localhost:8888/setup'
         self.headers = {'Authorization' : '07b3bfe728954619b58f0107ad73acc1'}
         self.json = { 'clients' : [ '192.168.2.1', '192.168.2.2' ],
+                      'type' : 'GPT',
                       'disk' : '1',
                       'cache' : '1',
                       'cache_size' : '0',
