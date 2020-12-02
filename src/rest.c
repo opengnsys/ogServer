@@ -1666,7 +1666,7 @@ static int og_cmd_software(json_t *element, struct og_msg_params *params)
 	clients = json_copy(element);
 	json_object_del(clients, "clients");
 
-	return og_send_request(OG_METHOD_POST, OG_CMD_SOFTWARE, params, clients);
+	return og_send_request(OG_METHOD_GET, OG_CMD_SOFTWARE, params, clients);
 }
 
 static int og_cmd_get_software(json_t *element, struct og_msg_params *params,
