@@ -2272,7 +2272,22 @@ static int og_cmd_legacy_hardware(const char *input, struct og_cmd *cmd)
 
 static int og_cmd_legacy_software(const char *input, struct og_cmd *cmd)
 {
-	og_cmd_init(cmd, OG_METHOD_GET, OG_CMD_SOFTWARE, NULL);
+	char part_str[OG_DB_SMALLINT_MAXLEN + 1];
+	char disk_str[OG_DB_SMALLINT_MAXLEN + 1];
+	json_t *root, *disk, *partition;
+
+	if (sscanf(input, "dsk=%s\rpar=%s\r", disk_str, part_str) != 2)
+		return -1;
+	partition = json_string(part_str);
+	disk = json_string(disk_str);
+
+	root = json_object();
+	if (!root)
+		return -1;
+	json_object_set_new(root, "partition", partition);
+	json_object_set_new(root, "disk", disk);
+
+	og_cmd_init(cmd, OG_METHOD_GET, OG_CMD_SOFTWARE, root);
 
 	return 0;
 }
