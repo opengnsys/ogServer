@@ -22,7 +22,7 @@ class TestGetSoftwareMethods(unittest.TestCase):
         for parameter in self.json:
             malformed_payload = self.json.copy()
             malformed_payload.pop(parameter)
-            returned = requests.pogetst(self.url,
+            returned = requests.get(self.url,
                                      headers=self.headers,
                                      json=malformed_payload)
             self.assertEqual(returned.status_code, 400)
