@@ -865,6 +865,7 @@ static int og_cmd_reboot(json_t *element, struct og_msg_params *params)
 	return og_send_request(OG_METHOD_POST, OG_CMD_REBOOT, params, NULL);
 }
 
+#define OG_TFTP_TMPL_PATH_UEFI "/opt/opengnsys/tftpboot/grub/templates"
 #define OG_TFTP_TMPL_PATH "/opt/opengnsys/tftpboot/menu.lst/templates"
 
 static int og_cmd_get_modes(json_t *element, struct og_msg_params *params,
@@ -1016,6 +1017,7 @@ static int og_set_client_mode(struct og_dbi *dbi, const char *mac,
 static int og_cmd_post_modes(json_t *element, struct og_msg_params *params)
 {
 	char ips_str[(OG_DB_IP_MAXLEN + 1) * OG_CLIENTS_MAX + 1] = {};
+	char template_file_uefi[PATH_MAX + 1] = {};
 	char template_file[PATH_MAX + 1] = {};
 	char template_name[PATH_MAX + 1] = {};
 	char first_line[PATH_MAX + 1] = {};
@@ -1052,9 +1054,17 @@ static int og_cmd_post_modes(json_t *element, struct og_msg_params *params)
 		 OG_TFTP_TMPL_PATH, mode_str);
 	f = fopen(template_file, "r");
 	if (!f) {
-		syslog(LOG_ERR, "cannot open file (%s:%d)\n",
-		       __func__, __LINE__);
-		return -1;
+		syslog(LOG_WARNING, "cannot open file %s (%s:%d). Trying UEFI template instead.\n",
+		       template_file, __func__, __LINE__);
+
+		snprintf(template_file_uefi, sizeof(template_file_uefi), "%s/%s",
+			 OG_TFTP_TMPL_PATH_UEFI, mode_str);
+		f = fopen(template_file_uefi, "r");
+		if (!f) {
+			syslog(LOG_ERR, "cannot open file %s (%s:%d). No template found.\n",
+			       template_file_uefi, __func__, __LINE__);
+			return -1;
+		}
 	}
 
 	if (!fgets(first_line, sizeof(first_line), f)) {
