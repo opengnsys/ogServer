@@ -1,7 +1,7 @@
 import requests
 import unittest
 
-MAX_REQ_SIZE = 65536
+MAX_REQ_SIZE = 131072
 
 class TestBigRequest(unittest.TestCase):
 

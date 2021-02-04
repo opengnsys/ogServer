@@ -37,7 +37,7 @@ enum og_cmd_type {
 	OG_CMD_MAX
 };
 
-#define OG_MSG_REQUEST_MAXLEN	65536
+#define OG_MSG_REQUEST_MAXLEN	131072
 
 struct og_client {
 	struct list_head	list;
