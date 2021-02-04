@@ -25,12 +25,6 @@
 
 static void og_client_release(struct ev_loop *loop, struct og_client *cli)
 {
-	if (cli->keepalive_idx >= 0) {
-		syslog(LOG_DEBUG, "closing keepalive connection for %s:%hu in slot %d\n",
-		       inet_ntoa(cli->addr.sin_addr),
-		       ntohs(cli->addr.sin_port), cli->keepalive_idx);
-	}
-
 	list_del(&cli->list);
 	ev_io_stop(loop, &cli->io);
 	close(cli->io.fd);
@@ -97,9 +91,6 @@ static int og_client_recv(struct og_client *cli, int events)
 			syslog(LOG_ERR, "error reading from client %s:%hu (%s)\n",
 			       inet_ntoa(cli->addr.sin_addr), ntohs(cli->addr.sin_port),
 			       strerror(errno));
-		} else {
-			syslog(LOG_DEBUG, "closed connection by %s:%hu\n",
-			       inet_ntoa(cli->addr.sin_addr), ntohs(cli->addr.sin_port));
 		}
 		return ret;
 	}
@@ -159,13 +150,8 @@ static void og_client_read_cb(struct ev_loop *loop, struct ev_io *io, int events
 			goto close;
 
 		if (cli->keepalive_idx < 0) {
-			syslog(LOG_DEBUG, "server closing connection to %s:%hu\n",
-			       inet_ntoa(cli->addr.sin_addr), ntohs(cli->addr.sin_port));
 			goto close;
 		} else {
-			syslog(LOG_DEBUG, "leaving client %s:%hu in keepalive mode\n",
-			       inet_ntoa(cli->addr.sin_addr),
-			       ntohs(cli->addr.sin_port));
 			og_client_reset_state(cli);
 		}
 		break;
@@ -276,9 +262,6 @@ static void og_agent_read_cb(struct ev_loop *loop, struct ev_io *io, int events)
 			og_agent_deliver_pending_cmd(cli);
 		}
 
-		syslog(LOG_DEBUG, "leaving client %s:%hu in keepalive mode\n",
-		       inet_ntoa(cli->addr.sin_addr),
-		       ntohs(cli->addr.sin_port));
 		og_agent_reset_state(cli);
 		break;
 	default:
@@ -363,9 +346,6 @@ void og_server_accept_cb(struct ev_loop *loop, struct ev_io *io, int events)
 		cli->rest = true;
 	else if (io->fd == socket_agent_rest)
 		cli->agent = true;
-
-	syslog(LOG_DEBUG, "connection from client %s:%hu\n",
-	       inet_ntoa(cli->addr.sin_addr), ntohs(cli->addr.sin_port));
 
 	if (io->fd == socket_agent_rest)
 		ev_io_init(&cli->io, og_agent_read_cb, client_sd, EV_READ);
