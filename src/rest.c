@@ -2344,7 +2344,8 @@ static int og_cmd_legacy_image_restore(const char *input, struct og_cmd *cmd)
 	struct og_image_legacy img = {};
 
 	if (sscanf(input,
-		   "dsk=%s\rpar=%s\ridi=%s\rnci=%s\ripr=%s\rifs=%s\rptc=%s\r",
+		   "dsk=%s\rpar=%s\ridi=%s\rnci=%s\r"
+		   "ipr=%s\rifs=%s\rptc=%[^\r]\r",
 		   img.disk, img.part, img.image_id, img.name, img.repo,
 		   software_id_str, restore_type_str) != 7)
 		return -1;
