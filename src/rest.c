@@ -2374,19 +2374,22 @@ static int og_cmd_legacy_image_restore(const char *input, struct og_cmd *cmd)
 	return 0;
 }
 
+#define OG_PARTITION_TABLE_TYPE_MAXLEN 5
+
 static int og_cmd_legacy_setup(const char *input, struct og_cmd *cmd)
 {
 	json_t *root, *disk, *cache, *cache_size, *partition_setup, *object;
+	char part_table_type_str[OG_PARTITION_TABLE_TYPE_MAXLEN + 1];
 	struct og_legacy_partition part_cfg[OG_PARTITION_MAX] = {};
+	json_t *part_table_type, *part, *code, *fs, *size, *format;
 	char cache_size_str [OG_DB_INT_MAXLEN + 1];
 	char disk_str [OG_DB_SMALLINT_MAXLEN + 1];
-	json_t *part, *code, *fs, *size, *format;
 	unsigned int partition_len = 0;
 	const char *in_ptr;
 	char cache_str[2];
 
-	if (sscanf(input, "dsk=%s\rcfg=dis=%*[^*]*che=%[^*]*tch=%[^!]!",
-		   disk_str, cache_str, cache_size_str) != 3)
+	if (sscanf(input, "ttp=%s\rdsk=%s\rcfg=dis=%*[^*]*che=%[^*]*tch=%[^!]!",
+		   part_table_type_str, disk_str, cache_str, cache_size_str) != 4)
 		return -1;
 
 	in_ptr = strstr(input, "!") + 1;
@@ -2407,6 +2410,7 @@ static int og_cmd_legacy_setup(const char *input, struct og_cmd *cmd)
 	if (!root)
 		return -1;
 
+	part_table_type = json_string(part_table_type_str);
 	cache_size = json_string(cache_size_str);
 	cache = json_string(cache_str);
 	partition_setup = json_array();
@@ -2436,6 +2440,7 @@ static int og_cmd_legacy_setup(const char *input, struct og_cmd *cmd)
 
 	json_object_set_new(root, "partition_setup", partition_setup);
 	json_object_set_new(root, "cache_size", cache_size);
+	json_object_set_new(root, "type", part_table_type);
 	json_object_set_new(root, "cache", cache);
 	json_object_set_new(root, "disk", disk);
 
