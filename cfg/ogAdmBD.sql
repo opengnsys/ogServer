@@ -560,7 +560,7 @@ CREATE TABLE `ordenadores_particiones` (
   `numdisk` smallint NOT NULL DEFAULT '0',
   `numpar` smallint NOT NULL DEFAULT '0',
   `codpar` int(8) NOT NULL DEFAULT '0',
-  `tamano` int(11) NOT NULL DEFAULT '0',
+  `tamano` bigint(20) NOT NULL DEFAULT '0',
   `uso` tinyint NOT NULL DEFAULT '0',
   `idsistemafichero` smallint(11) NOT NULL DEFAULT '0',
   `idnombreso` smallint(11) NOT NULL DEFAULT '0',
@@ -798,9 +798,9 @@ DROP TABLE IF EXISTS `remotepc`;
 CREATE TABLE `remotepc` (
   `id` int(11) NOT NULL DEFAULT 0,
   `reserved` datetime DEFAULT NULL,
-  `urllogin` varchar(100) DEFAULT NULL,
-  `urllogout` varchar(100) DEFAULT NULL,
-  `urlrelease` varchar(100) DEFAULT NULL,
+  `urllogin` varchar(255) DEFAULT NULL,
+  `urllogout` varchar(255) DEFAULT NULL,
+  `urlrelease` varchar(255) DEFAULT NULL,
   `language` varchar(5),
   `islocal` tinyint NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`)
