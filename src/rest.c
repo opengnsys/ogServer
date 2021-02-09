@@ -1134,7 +1134,7 @@ static int og_cmd_get_client_setup(json_t *element,
 		int disk;
 		int number;
 		int code;
-		int size;
+		uint64_t size;
 		int filesystem;
 		int format;
 		int os;
@@ -1201,7 +1201,7 @@ static int og_cmd_get_client_setup(json_t *element,
 		partition.disk = dbi_result_get_int(result, "numdisk");
 		partition.number = dbi_result_get_int(result, "numpar");
 		partition.code = dbi_result_get_int(result, "codpar");
-		partition.size = dbi_result_get_int(result, "tamano");
+		partition.size = dbi_result_get_longlong(result, "tamano");
 		partition.used_size = dbi_result_get_int(result, "uso");
 		partition.filesystem = dbi_result_get_int(result, "idsistemafichero");
 		partition.os = dbi_result_get_int(result, "idnombreso");
