@@ -406,70 +406,6 @@ static int og_cmd_get_clients(json_t *element, struct og_msg_params *params,
 	return 0;
 }
 
-static int og_json_parse_target(json_t *element, struct og_msg_params *params)
-{
-	const char *key;
-	json_t *value;
-
-	if (json_typeof(element) != JSON_OBJECT) {
-		return -1;
-	}
-
-	json_object_foreach(element, key, value) {
-		if (!strcmp(key, "addr")) {
-			if (json_typeof(value) != JSON_STRING)
-				return -1;
-
-			params->ips_array[params->ips_array_len] =
-				json_string_value(value);
-
-			params->flags |= OG_REST_PARAM_ADDR;
-		} else if (!strcmp(key, "mac")) {
-			if (json_typeof(value) != JSON_STRING)
-				return -1;
-
-			params->mac_array[params->ips_array_len] =
-				json_string_value(value);
-
-			params->flags |= OG_REST_PARAM_MAC;
-		} else if (!strcmp(key, "netmask")) {
-			if (json_typeof(value) != JSON_STRING)
-				return -1;
-
-			params->netmask_array[params->ips_array_len] =
-				json_string_value(value);
-
-			params->flags |= OG_REST_PARAM_NETMASK;
-		}
-	}
-
-	return 0;
-}
-
-static int og_json_parse_targets(json_t *element, struct og_msg_params *params)
-{
-	unsigned int i;
-	json_t *k;
-	int err;
-
-	if (json_typeof(element) != JSON_ARRAY)
-		return -1;
-
-	for (i = 0; i < json_array_size(element); i++) {
-		k = json_array_get(element, i);
-
-		if (json_typeof(k) != JSON_OBJECT)
-			return -1;
-
-		err = og_json_parse_target(k, params);
-		if (err < 0)
-			return err;
-
-		params->ips_array_len++;
-	}
-	return 0;
-}
-
 static int og_json_parse_type(json_t *element, struct og_msg_params *params)
 {
 	const char *type;
@@ -492,16 +428,21 @@ static int og_json_parse_type(json_t *element, struct og_msg_params *params)
 
 static int og_cmd_wol(json_t *element, struct og_msg_params *params)
 {
+	char ips_str[(OG_DB_IP_MAXLEN + 1) * OG_CLIENTS_MAX + 1] = {};
+	int ips_str_len = 0;
+	const char *msglog;
+	struct og_dbi *dbi;
+	int err = 0, i = 0;
+	dbi_result result;
 	const char *key;
 	json_t *value;
-	int err = 0;
 
 	if (json_typeof(element) != JSON_OBJECT)
 		return -1;
 
 	json_object_foreach(element, key, value) {
 		if (!strcmp(key, "clients")) {
-			err = og_json_parse_targets(value, params);
+			err = og_json_parse_clients(value, params);
 		} else if (!strcmp(key, "type")) {
 			err = og_json_parse_type(value, params);
 		}
@@ -509,12 +450,43 @@ static int og_cmd_wol(json_t *element, struct og_msg_params *params)
 		if (err < 0)
 			break;
 	}
-
 	if (!og_msg_params_validate(params, OG_REST_PARAM_ADDR |
-					    OG_REST_PARAM_MAC |
-					    OG_REST_PARAM_NETMASK |
 					    OG_REST_PARAM_WOL_TYPE))
 		return -1;
+
+	for (i = 0; i < params->ips_array_len; ++i) {
+		ips_str_len += snprintf(ips_str + ips_str_len,
+					sizeof(ips_str) - ips_str_len,
+					"'%s',", params->ips_array[i]);
+	}
+	ips_str[ips_str_len - 1] = '\0';
+
+	dbi = og_dbi_open(&ogconfig.db);
+	if (!dbi) {
+		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
+		       __func__, __LINE__);
+		return -1;
+	}
+
+	result = dbi_conn_queryf(dbi->conn,
+				 "SELECT ip, mac, mascara FROM ordenadores "
+				 "WHERE ip IN (%s)", ips_str);
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		og_dbi_close(dbi);
+		return -1;
+	}
+
+	for (i = 0; dbi_result_next_row(result); i++) {
+		params->ips_array[i] = dbi_result_get_string_copy(result, "ip");
+		params->mac_array[i] = dbi_result_get_string_copy(result, "mac");
+		params->netmask_array[i] = dbi_result_get_string_copy(result, "mascara");
+	}
+
+	dbi_result_free(result);
+	og_dbi_close(dbi);
 
 	if (!Levanta((char **)params->ips_array, (char **)params->mac_array,
 		     (char **)params->netmask_array, params->ips_array_len,
