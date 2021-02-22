@@ -2138,6 +2138,7 @@ void og_cmd_free(const struct og_cmd *cmd)
 	int i;
 
 	for (i = 0; i < params->ips_array_len; i++) {
+		free((void *)params->netmask_array[i]);
 		free((void *)params->ips_array[i]);
 		free((void *)params->mac_array[i]);
 	}
@@ -2164,15 +2165,42 @@ static void og_cmd_init(struct og_cmd *cmd, enum og_rest_method method,
 static int og_cmd_legacy_wol(const char *input, struct og_cmd *cmd)
 {
 	char wol_type[2] = {};
+	const char *msglog;
+	struct og_dbi *dbi;
+	dbi_result result;
 
 	if (sscanf(input, "mar=%s", wol_type) != 1) {
 		syslog(LOG_ERR, "malformed database legacy input\n");
 		return -1;
 	}
 
+	dbi = og_dbi_open(&ogconfig.db);
+	if (!dbi) {
+		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
+		       __func__, __LINE__);
+		return -1;
+	}
+
+	result = dbi_conn_queryf(dbi->conn,
+				 "SELECT mascara FROM ordenadores "
+				 "WHERE ip = '%s'", cmd->ip);
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		og_dbi_close(dbi);
+		return -1;
+	}
+	dbi_result_next_row(result);
+
 	og_cmd_init(cmd, OG_METHOD_NO_HTTP, OG_CMD_WOL, NULL);
+	cmd->params.netmask_array[0] = dbi_result_get_string_copy(result,
+								  "mascara");
 	cmd->params.mac_array[0] = strdup(cmd->mac);
 	cmd->params.wol_type = strdup(wol_type);
+
+	dbi_result_free(result);
+	og_dbi_close(dbi);
 
 	return 0;
 }
