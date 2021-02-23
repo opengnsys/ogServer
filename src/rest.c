@@ -315,6 +315,8 @@ int og_send_request(enum og_rest_method method, enum og_cmd_type type,
 		cli->last_cmd = type;
 	}
 
+	json_decref((json_t *)data);
+
 	return 0;
 }
 
