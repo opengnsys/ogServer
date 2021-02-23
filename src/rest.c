@@ -493,6 +493,12 @@ static int og_cmd_wol(json_t *element, struct og_msg_params *params)
 		     (char *)params->wol_type))
 		return -1;
 
+	for (i = 0; i < params->ips_array_len; ++i) {
+		free((void *)params->ips_array[i]);
+		free((void *)params->mac_array[i]);
+		free((void *)params->netmask_array[i]);
+	}
+
 	return 0;
 }
 
