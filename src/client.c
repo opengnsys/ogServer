@@ -683,6 +683,7 @@ int og_agent_state_process_response(struct og_client *cli)
 		break;
 	}
 
+	json_decref(root);
 	cli->last_cmd = OG_CMD_UNSPEC;
 
 	return err;
