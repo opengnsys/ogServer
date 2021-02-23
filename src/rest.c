@@ -3791,12 +3791,15 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 
 	if (!strncmp(cmd, "clients", strlen("clients"))) {
 		if (method != OG_METHOD_POST &&
-		    method != OG_METHOD_GET)
-			return og_client_method_not_found(cli);
+		    method != OG_METHOD_GET) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
 
 		if (method == OG_METHOD_POST && !root) {
 			syslog(LOG_ERR, "command clients with no payload\n");
-			return og_client_bad_request(cli);
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
 		}
 		switch (method) {
 		case OG_METHOD_POST:
@@ -3806,89 +3809,113 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 			err = og_cmd_get_clients(root, &params, buf_reply);
 			break;
 		default:
-			return og_client_bad_request(cli);
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
 		}
 	} else if (!strncmp(cmd, "client/setup",
 			    strlen("client/setup"))) {
-		if (method != OG_METHOD_GET)
-			return og_client_method_not_found(cli);
+		if (method != OG_METHOD_GET) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
 
 		if (!root) {
 			syslog(LOG_ERR,
 			       "command client partitions with no payload\n");
-			return og_client_bad_request(cli);
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
 		}
 
 		err = og_cmd_get_client_setup(root, &params, buf_reply);
 	} else if (!strncmp(cmd, "client/info",
 			    strlen("client/info"))) {
-		if (method != OG_METHOD_GET)
-			return og_client_method_not_found(cli);
-
+		if (method != OG_METHOD_GET) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
 		if (!root) {
 			syslog(LOG_ERR,
 			       "command client info with no payload\n");
-			return og_client_bad_request(cli);
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
 		}
 
 		err = og_cmd_get_client_info(root, &params, buf_reply);
 	} else if (!strncmp(cmd, "client/add", strlen("client/add"))) {
-		if (method != OG_METHOD_POST)
-			return og_client_method_not_found(cli);
+		if (method != OG_METHOD_POST) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
 
 		if (!root) {
 			syslog(LOG_ERR,
 			       "command client info with no payload\n");
-			return og_client_bad_request(cli);
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
 		}
 
 		err = og_cmd_post_client_add(root, &params, buf_reply);
 	} else if (!strncmp(cmd, "client/delete", strlen("client/delete"))) {
-		if (method != OG_METHOD_POST)
-			return og_client_method_not_found(cli);
+		if (method != OG_METHOD_POST) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
 
 		if (!root) {
 			syslog(LOG_ERR,
 			       "command client delete with no payload\n");
-			return og_client_bad_request(cli);
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
 		}
 
 		err = og_cmd_post_client_delete(root, &params);
 	} else if (!strncmp(cmd, "wol", strlen("wol"))) {
-		if (method != OG_METHOD_POST)
-			return og_client_method_not_found(cli);
+		if (method != OG_METHOD_POST) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
 
 		if (!root) {
 			syslog(LOG_ERR, "command wol with no payload\n");
-			return og_client_bad_request(cli);
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
 		}
 		err = og_cmd_wol(root, &params);
 	} else if (!strncmp(cmd, "shell/run", strlen("shell/run"))) {
-		if (method != OG_METHOD_POST)
-			return og_client_method_not_found(cli);
+		if (method != OG_METHOD_POST) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
 
 		if (!root) {
 			syslog(LOG_ERR, "command run with no payload\n");
-			return og_client_bad_request(cli);
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
 		}
 		err = og_cmd_run_post(root, &params);
 	} else if (!strncmp(cmd, "shell/output", strlen("shell/output"))) {
-		if (method != OG_METHOD_POST)
-			return og_client_method_not_found(cli);
+		if (method != OG_METHOD_POST) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
 
 		if (!root) {
 			syslog(LOG_ERR, "command output with no payload\n");
-			return og_client_bad_request(cli);
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
 		}
 
 		err = og_cmd_run_get(root, &params, buf_reply);
 	} else if (!strncmp(cmd, "session", strlen("session"))) {
-		if (method != OG_METHOD_POST && method != OG_METHOD_GET)
-			return og_client_method_not_found(cli);
+		if (method != OG_METHOD_POST && method != OG_METHOD_GET) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
 
 		if (!root) {
 			syslog(LOG_ERR, "command session with no payload\n");
-			return og_client_bad_request(cli);
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
 		}
 
 		if (method == OG_METHOD_POST)
@@ -3896,40 +3923,52 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 		else
 			err = og_cmd_get_session(root, &params, buf_reply);
 	} else if (!strncmp(cmd, "scopes", strlen("scopes"))) {
-		if (method != OG_METHOD_GET)
-			return og_client_method_not_found(cli);
+		if (method != OG_METHOD_GET) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
 
 		if (root) {
 			syslog(LOG_ERR, "command scopes with payload\n");
-			return og_client_bad_request(cli);
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
 		}
 
 		err = og_cmd_scope_get(root, &params, buf_reply);
 	} else if (!strncmp(cmd, "poweroff", strlen("poweroff"))) {
-		if (method != OG_METHOD_POST)
-			return og_client_method_not_found(cli);
+		if (method != OG_METHOD_POST) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
 
 		if (!root) {
 			syslog(LOG_ERR, "command poweroff with no payload\n");
-			return og_client_bad_request(cli);
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
 		}
 		err = og_cmd_poweroff(root, &params);
 	} else if (!strncmp(cmd, "reboot", strlen("reboot"))) {
-		if (method != OG_METHOD_POST)
-			return og_client_method_not_found(cli);
+		if (method != OG_METHOD_POST) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
 
 		if (!root) {
 			syslog(LOG_ERR, "command reboot with no payload\n");
-			return og_client_bad_request(cli);
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
 		}
 		err = og_cmd_reboot(root, &params);
 	} else if (!strncmp(cmd, "mode", strlen("mode"))) {
-		if (method != OG_METHOD_GET && method != OG_METHOD_POST)
-			return og_client_method_not_found(cli);
+		if (method != OG_METHOD_GET && method != OG_METHOD_POST) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
 
 		if (method == OG_METHOD_POST && !root) {
 			syslog(LOG_ERR, "command mode with no payload\n");
-			return og_client_bad_request(cli);
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
 		}
 
 		if (method == OG_METHOD_GET)
@@ -3937,30 +3976,39 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 		else if (method == OG_METHOD_POST)
 			err = og_cmd_post_modes(root, &params);
 	} else if (!strncmp(cmd, "stop", strlen("stop"))) {
-		if (method != OG_METHOD_POST)
-			return og_client_method_not_found(cli);
+		if (method != OG_METHOD_POST) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
 
 		if (!root) {
 			syslog(LOG_ERR, "command stop with no payload\n");
-			return og_client_bad_request(cli);
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
 		}
 		err = og_cmd_stop(root, &params);
 	} else if (!strncmp(cmd, "refresh", strlen("refresh"))) {
-		if (method != OG_METHOD_POST)
-			return og_client_method_not_found(cli);
+		if (method != OG_METHOD_POST) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
 
 		if (!root) {
 			syslog(LOG_ERR, "command refresh with no payload\n");
-			return og_client_bad_request(cli);
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
 		}
 		err = og_cmd_refresh(root, &params);
 	} else if (!strncmp(cmd, "hardware", strlen("hardware"))) {
-		if (method != OG_METHOD_GET && method != OG_METHOD_POST)
-			return og_client_method_not_found(cli);
+		if (method != OG_METHOD_GET && method != OG_METHOD_POST) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
 
 		if (!root) {
 			syslog(LOG_ERR, "command hardware with no payload\n");
-			return og_client_bad_request(cli);
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
 		}
 
 		if (method == OG_METHOD_GET)
@@ -3968,12 +4016,15 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 		else if (method == OG_METHOD_POST)
 			err = og_cmd_hardware(root, &params);
 	} else if (!strncmp(cmd, "software", strlen("software"))) {
-		if (method != OG_METHOD_POST && method != OG_METHOD_GET)
-			return og_client_method_not_found(cli);
+		if (method != OG_METHOD_POST && method != OG_METHOD_GET) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
 
 		if (!root) {
 			syslog(LOG_ERR, "command software with no payload\n");
-			return og_client_bad_request(cli);
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
 		}
 
 		if (method == OG_METHOD_POST)
@@ -3981,93 +4032,123 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 		else
 			err = og_cmd_get_software(root, &params, buf_reply);
 	} else if (!strncmp(cmd, "images", strlen("images"))) {
-		if (method != OG_METHOD_GET)
-			return og_client_method_not_found(cli);
+		if (method != OG_METHOD_GET) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
 
-		if (!root)
-			err = og_cmd_images(buf_reply);
-		else
-			return og_client_method_not_found(cli);
+		if (root) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
+
+		err = og_cmd_images(buf_reply);
 	} else if (!strncmp(cmd, "image/create", strlen("image/create"))) {
-		if (method != OG_METHOD_POST)
-			return og_client_method_not_found(cli);
+		if (method != OG_METHOD_POST) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
 
 		if (!root) {
 			syslog(LOG_ERR, "command create with no payload\n");
-			return og_client_bad_request(cli);
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
 		}
 		err = og_cmd_create_image(root, &params);
 	} else if (!strncmp(cmd, "image/restore", strlen("image/restore"))) {
-		if (method != OG_METHOD_POST)
-			return og_client_method_not_found(cli);
+		if (method != OG_METHOD_POST) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
 
 		if (!root) {
 			syslog(LOG_ERR, "command create with no payload\n");
-			return og_client_bad_request(cli);
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
 		}
 		err = og_cmd_restore_image(root, &params);
 	} else if (!strncmp(cmd, "setup", strlen("setup"))) {
-		if (method != OG_METHOD_POST)
-			return og_client_method_not_found(cli);
+		if (method != OG_METHOD_POST) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
 
 		if (!root) {
 			syslog(LOG_ERR, "command create with no payload\n");
-			return og_client_bad_request(cli);
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
 		}
 		err = og_cmd_setup(root, &params);
 	} else if (!strncmp(cmd, "run/schedule", strlen("run/schedule"))) {
-		if (method != OG_METHOD_POST)
-			return og_client_method_not_found(cli);
+		if (method != OG_METHOD_POST) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
 
 		if (!root) {
 			syslog(LOG_ERR, "command create with no payload\n");
-			return og_client_bad_request(cli);
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
 		}
 
 		err = og_cmd_run_schedule(root, &params);
 	} else if (!strncmp(cmd, "task/run", strlen("task/run"))) {
-		if (method != OG_METHOD_POST)
-			return og_client_method_not_found(cli);
+		if (method != OG_METHOD_POST) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
 
 		if (!root) {
 			syslog(LOG_ERR, "command task with no payload\n");
-			return og_client_bad_request(cli);
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
 		}
 		err = og_cmd_task_post(root, &params);
 	} else if (!strncmp(cmd, "schedule/create",
 			    strlen("schedule/create"))) {
-		if (method != OG_METHOD_POST)
-			return og_client_method_not_found(cli);
+		if (method != OG_METHOD_POST) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
 
 		if (!root) {
 			syslog(LOG_ERR, "command task with no payload\n");
-			return og_client_bad_request(cli);
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
 		}
 		err = og_cmd_schedule_create(root, &params);
 	} else if (!strncmp(cmd, "schedule/delete",
 			    strlen("schedule/delete"))) {
-		if (method != OG_METHOD_POST)
-			return og_client_method_not_found(cli);
+		if (method != OG_METHOD_POST) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
 
 		if (!root) {
 			syslog(LOG_ERR, "command task with no payload\n");
-			return og_client_bad_request(cli);
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
 		}
 		err = og_cmd_schedule_delete(root, &params);
 	} else if (!strncmp(cmd, "schedule/update",
 			    strlen("schedule/update"))) {
-		if (method != OG_METHOD_POST)
-			return og_client_method_not_found(cli);
+		if (method != OG_METHOD_POST) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
 
 		if (!root) {
 			syslog(LOG_ERR, "command task with no payload\n");
-			return og_client_bad_request(cli);
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
 		}
 		err = og_cmd_schedule_update(root, &params);
 	} else if (!strncmp(cmd, "schedule/get",
 			    strlen("schedule/get"))) {
-		if (method != OG_METHOD_POST)
-			return og_client_method_not_found(cli);
+		if (method != OG_METHOD_POST) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
 
 		err = og_cmd_schedule_get(root, &params, buf_reply);
 	} else {
@@ -4075,8 +4156,7 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 		err = og_client_not_found(cli);
 	}
 
-	if (root)
-		json_decref(root);
+	json_decref(root);
 
 	if (err < 0)
 		return og_client_bad_request(cli);
@@ -4087,6 +4167,11 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 		       inet_ntoa(cli->addr.sin_addr),
 		       ntohs(cli->addr.sin_port));
 	}
+
+	return err;
+
+err_process_rest_payload:
+	json_decref(root);
 
 	return err;
 }
