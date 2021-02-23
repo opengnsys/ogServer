@@ -10,10 +10,8 @@ class TestBigRequest(unittest.TestCase):
         self.data = 'X' * MAX_REQ_SIZE
 
     def test_post(self):
-        with self.assertRaises(requests.exceptions.ConnectionError) as context:
-            requests.post(self.url, data=self.data)
-
-        self.assertTrue('Connection reset by peer' in str(context.exception))
+        returned = requests.post(self.url, data=self.data)
+        self.assertEqual(returned.status_code, 413)
 
 if __name__ == '__main__':
     unittest.main()
