@@ -2924,7 +2924,7 @@ void og_schedule_run(unsigned int task_id, unsigned int schedule_id,
 		}
 
 		if (!duplicated)
-			params.ips_array[params.ips_array_len++] = cmd->ip;
+			params.ips_array[params.ips_array_len++] = strdup(cmd->ip);
 		else
 			duplicated = false;
 	}
@@ -2945,6 +2945,9 @@ void og_schedule_run(unsigned int task_id, unsigned int schedule_id,
 	}
 
 	og_send_request(OG_METHOD_GET, OG_CMD_RUN_SCHEDULE, &params, NULL);
+
+	for (i = 0; i < params.ips_array_len; i++)
+		free((void *)params.ips_array[i]);
 }
 
 static int og_cmd_task_post(json_t *element, struct og_msg_params *params)
