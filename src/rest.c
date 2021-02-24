@@ -1890,7 +1890,7 @@ static int og_cmd_images(char *buffer_reply)
 			return -1;
 		}
 
-		json_array_append(images, image_json);
+		json_array_append_new(images, image_json);
 	}
 
 	dbi_result_free(result);
