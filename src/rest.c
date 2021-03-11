@@ -2745,7 +2745,7 @@ int og_dbi_queue_procedure(struct og_dbi *dbi, struct og_task *task)
 			continue;
 		}
 
-		task->params	= strdup(dbi_result_get_string(result, "parametros"));
+		task->params = dbi_result_get_string(result, "parametros");
 		task->command_id = dbi_result_get_uint(result, "idcomando");
 		if (og_queue_task_clients(dbi, task))
 			return -1;
@@ -2832,7 +2832,7 @@ static int og_dbi_queue_command(struct og_dbi *dbi, uint32_t task_id,
 		task.task_id = dbi_result_get_uint(result, "idaccion");
 		task.center_id = dbi_result_get_uint(result, "idcentro");
 		task.scope = dbi_result_get_uint(result, "idordenador");
-		task.params = strdup(dbi_result_get_string(result, "parametros"));
+		task.params = dbi_result_get_string(result, "parametros");
 
 		sprintf(query,
 			"SELECT ip, mac, idordenador FROM ordenadores "
