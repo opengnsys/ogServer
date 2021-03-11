@@ -16,7 +16,7 @@ struct og_schedule_time {
 	uint32_t	hours;
 	uint32_t	am_pm;
 	uint32_t	minutes;
-	bool		on_start;
+	bool		check_stale;
 };
 
 enum og_schedule_type {

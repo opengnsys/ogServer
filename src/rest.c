@@ -3234,7 +3234,7 @@ int og_dbi_schedule_get(void)
 		time.hours = dbi_result_get_uint(result, "horas");
 		time.am_pm = dbi_result_get_uint(result, "ampm");
 		time.minutes = dbi_result_get_uint(result, "minutos");
-		time.on_start = true;
+		time.check_stale = true;
 
 		og_schedule_create(schedule_id, task_id, OG_SCHEDULE_TASK,
 				   &time);
@@ -3485,8 +3485,59 @@ static int og_task_schedule_create(struct og_msg_params *params)
 	return 0;
 }
 
+static uint32_t og_tm_years_mask(struct tm *tm)
+{
+	int i, j = 0;
+
+	for (i = 2010; i < 2026; i++, j++) {
+		if (tm->tm_year + 1900 == i)
+			break;
+	}
+
+	return (1 << j);
+}
+
+static uint32_t og_tm_months_mask(struct tm *tm)
+{
+	return 1 << tm->tm_mon;
+}
+
+static uint32_t og_tm_hours_mask(struct tm *tm)
+{
+	return 1 << (tm->tm_hour - 12);
+}
+
+static uint32_t og_tm_ampm(struct tm *tm)
+{
+	return tm->tm_hour < 12 ? 0 : 1;
+}
+
+static uint32_t og_tm_days_mask(struct tm *tm)
+{
+	return 1 << (tm->tm_mday - 1);
+}
+
+static void og_schedule_time_now(struct og_schedule_time *ogtime)
+{
+	struct tm *tm;
+	time_t now;
+
+	now = time(NULL);
+	tm = localtime(&now);
+
+	ogtime->years = og_tm_years_mask(tm);
+	ogtime->months = og_tm_months_mask(tm);
+	ogtime->weeks = 0;
+	ogtime->week_days = 0;
+	ogtime->days =  og_tm_days_mask(tm);
+	ogtime->hours = og_tm_hours_mask(tm);
+	ogtime->am_pm = og_tm_ampm(tm);
+	ogtime->minutes = tm->tm_min;
+}
+
 static int og_cmd_schedule_create(json_t *element, struct og_msg_params *params)
 {
+	bool when = false;
 	const char *key;
 	json_t *value;
 	int err;
@@ -3503,6 +3554,7 @@ static int og_cmd_schedule_create(json_t *element, struct og_msg_params *params)
 			params->flags |= OG_REST_PARAM_NAME;
 		} else if (!strcmp(key, "when")) {
 			err = og_json_parse_time_params(value, params);
+			when = true;
 		} else if (!strcmp(key, "type")) {
 			err = og_json_parse_string(value, &params->type);
 			params->flags |= OG_REST_PARAM_TYPE;
@@ -3510,6 +3562,21 @@ static int og_cmd_schedule_create(json_t *element, struct og_msg_params *params)
 
 		if (err < 0)
 			break;
+	}
+
+	if (!when) {
+		params->time.check_stale = false;
+		og_schedule_time_now(&params->time);
+		params->flags |= OG_REST_PARAM_TIME_YEARS |
+				 OG_REST_PARAM_TIME_MONTHS |
+				 OG_REST_PARAM_TIME_WEEKS |
+				 OG_REST_PARAM_TIME_WEEK_DAYS |
+				 OG_REST_PARAM_TIME_DAYS |
+				 OG_REST_PARAM_TIME_HOURS |
+				 OG_REST_PARAM_TIME_AM_PM |
+				 OG_REST_PARAM_TIME_MINUTES;
+	} else {
+		params->time.check_stale = true;
 	}
 
 	if (!og_msg_params_validate(params, OG_REST_PARAM_TASK |
