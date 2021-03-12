@@ -334,7 +334,7 @@ static int og_cmd_post_clients(json_t *element, struct og_msg_params *params)
 			err = og_json_parse_clients(value, params);
 
 		if (err < 0)
-			break;
+			return err;
 	}
 
 	if (!og_msg_params_validate(params, OG_REST_PARAM_ADDR))
@@ -450,7 +450,7 @@ static int og_cmd_wol(json_t *element, struct og_msg_params *params)
 		}
 
 		if (err < 0)
-			break;
+			return err;
 	}
 	if (!og_msg_params_validate(params, OG_REST_PARAM_ADDR |
 					    OG_REST_PARAM_WOL_TYPE))
@@ -538,7 +538,7 @@ static int og_cmd_run_post(json_t *element, struct og_msg_params *params)
 		}
 
 		if (err < 0)
-			break;
+			return err;
 	}
 
 	if (!og_msg_params_validate(params, OG_REST_PARAM_ADDR |
@@ -790,7 +790,7 @@ static int og_cmd_poweroff(json_t *element, struct og_msg_params *params)
 			err = og_json_parse_clients(value, params);
 
 		if (err < 0)
-			break;
+			return err;
 	}
 
 	if (!og_msg_params_validate(params, OG_REST_PARAM_ADDR))
@@ -813,7 +813,7 @@ static int og_cmd_refresh(json_t *element, struct og_msg_params *params)
 			err = og_json_parse_clients(value, params);
 
 		if (err < 0)
-			break;
+			return err;
 	}
 
 	if (!og_msg_params_validate(params, OG_REST_PARAM_ADDR))
@@ -836,7 +836,7 @@ static int og_cmd_reboot(json_t *element, struct og_msg_params *params)
 			err = og_json_parse_clients(value, params);
 
 		if (err < 0)
-			break;
+			return err;
 	}
 
 	if (!og_msg_params_validate(params, OG_REST_PARAM_ADDR))
@@ -1023,7 +1023,7 @@ static int og_cmd_post_modes(json_t *element, struct og_msg_params *params)
 		}
 
 		if (err < 0)
-			break;
+			return err;
 	}
 
 	if (!og_flags_validate(flags, OG_REST_PARAM_MODE) ||
@@ -1129,7 +1129,7 @@ static int og_cmd_get_client_setup(json_t *element,
 		}
 
 		if (err < 0)
-			break;
+			return err;
 	}
 
 	if (!og_msg_params_validate(params, OG_REST_PARAM_ADDR))
@@ -1248,7 +1248,7 @@ static int og_cmd_get_client_info(json_t *element,
 		}
 
 		if (err < 0)
-			break;
+			return err;
 	}
 
 	if (!og_msg_params_validate(params, OG_REST_PARAM_ADDR))
@@ -1363,7 +1363,7 @@ static int og_cmd_post_client_add(json_t *element,
 		}
 
 		if (err < 0)
-			break;
+			return err;
 	}
 
 	dbi = og_dbi_open(&ogconfig.db);
@@ -1447,11 +1447,9 @@ static int og_cmd_post_client_delete(json_t *element,
 	json_object_foreach(element, key, value) {
 		if (!strcmp(key, "clients"))
 			err = og_json_parse_clients(value, params);
-		else
-			err = -1;
 
 		if (err < 0)
-			break;
+			return err;
 	}
 
 	if (!og_msg_params_validate(params, OG_REST_PARAM_ADDR))
@@ -1498,7 +1496,7 @@ static int og_cmd_stop(json_t *element, struct og_msg_params *params)
 			err = og_json_parse_clients(value, params);
 
 		if (err < 0)
-			break;
+			return err;
 	}
 
 	if (!og_msg_params_validate(params, OG_REST_PARAM_ADDR))
@@ -1521,7 +1519,7 @@ static int og_cmd_hardware(json_t *element, struct og_msg_params *params)
 			err = og_json_parse_clients(value, params);
 
 		if (err < 0)
-			break;
+			return err;
 	}
 
 	if (!og_msg_params_validate(params, OG_REST_PARAM_ADDR))
@@ -1546,8 +1544,6 @@ static int og_cmd_get_hardware(json_t *element, struct og_msg_params *params,
 	json_object_foreach(element, key, value) {
 		if (!strcmp(key, "client"))
 			err = og_json_parse_clients(value, params);
-		else
-			err = -1;
 
 		if (err < 0)
 			return err;
@@ -1645,7 +1641,7 @@ static int og_cmd_software(json_t *element, struct og_msg_params *params)
 		}
 
 		if (err < 0)
-			break;
+			return err;
 	}
 
 	if (!og_msg_params_validate(params, OG_REST_PARAM_ADDR |
@@ -1689,7 +1685,7 @@ static int og_cmd_get_software(json_t *element, struct og_msg_params *params,
 		}
 
 		if (err < 0)
-			break;
+			return err;
 	}
 
 	if (!og_msg_params_validate(params, OG_REST_PARAM_ADDR) ||
@@ -1954,9 +1950,8 @@ static int og_cmd_create_image(json_t *element, struct og_msg_params *params)
 			err = og_json_parse_uint64(value, &image.center_id);
 		}
 
-
 		if (err < 0)
-			break;
+			return err;
 	}
 
 	if (!og_msg_params_validate(params, OG_REST_PARAM_ADDR |
@@ -2033,7 +2028,7 @@ static int og_cmd_restore_image(json_t *element, struct og_msg_params *params)
 		}
 
 		if (err < 0)
-			break;
+			return err;
 	}
 
 	if (!og_msg_params_validate(params, OG_REST_PARAM_ADDR |
@@ -2082,7 +2077,7 @@ static int og_cmd_setup(json_t *element, struct og_msg_params *params)
 		}
 
 		if (err < 0)
-			break;
+			return err;
 	}
 
 	if (!og_msg_params_validate(params, OG_REST_PARAM_ADDR |
@@ -2113,7 +2108,7 @@ static int og_cmd_run_schedule(json_t *element, struct og_msg_params *params)
 			err = og_json_parse_clients(value, params);
 
 		if (err < 0)
-			break;
+			return err;
 	}
 
 	if (!og_msg_params_validate(params, OG_REST_PARAM_ADDR))
@@ -2964,7 +2959,7 @@ static int og_cmd_task_post(json_t *element, struct og_msg_params *params)
 	struct og_dbi *dbi;
 	const char *key;
 	json_t *value;
-	int err;
+	int err = 0;
 
 	if (json_typeof(element) != JSON_OBJECT)
 		return -1;
@@ -2976,7 +2971,7 @@ static int og_cmd_task_post(json_t *element, struct og_msg_params *params)
 		}
 
 		if (err < 0)
-			break;
+			return err;
 	}
 
 	if (!og_msg_params_validate(params, OG_REST_PARAM_TASK))
@@ -3540,7 +3535,7 @@ static int og_cmd_schedule_create(json_t *element, struct og_msg_params *params)
 	bool when = false;
 	const char *key;
 	json_t *value;
-	int err;
+	int err = 0;
 
 	if (json_typeof(element) != JSON_OBJECT)
 		return -1;
@@ -3561,7 +3556,7 @@ static int og_cmd_schedule_create(json_t *element, struct og_msg_params *params)
 		}
 
 		if (err < 0)
-			break;
+			return err;
 	}
 
 	if (!when) {
@@ -3600,7 +3595,7 @@ static int og_cmd_schedule_update(json_t *element, struct og_msg_params *params)
 	struct og_dbi *dbi;
 	const char *key;
 	json_t *value;
-	int err;
+	int err = 0;
 
 	if (json_typeof(element) != JSON_OBJECT)
 		return -1;
@@ -3619,7 +3614,7 @@ static int og_cmd_schedule_update(json_t *element, struct og_msg_params *params)
 			err = og_json_parse_time_params(value, params);
 
 		if (err < 0)
-			break;
+			return err;
 	}
 
 	if (!og_msg_params_validate(params, OG_REST_PARAM_ID |
@@ -3658,7 +3653,7 @@ static int og_cmd_schedule_delete(json_t *element, struct og_msg_params *params)
 	struct og_dbi *dbi;
 	const char *key;
 	json_t *value;
-	int err;
+	int err = 0;
 
 	if (json_typeof(element) != JSON_OBJECT)
 		return -1;
@@ -3667,12 +3662,10 @@ static int og_cmd_schedule_delete(json_t *element, struct og_msg_params *params)
 		if (!strcmp(key, "id")) {
 			err = og_json_parse_string(value, &params->id);
 			params->flags |= OG_REST_PARAM_ID;
-		} else {
-			return -1;
 		}
 
 		if (err < 0)
-			break;
+			return err;
 	}
 
 	if (!og_msg_params_validate(params, OG_REST_PARAM_ID))
@@ -3703,7 +3696,7 @@ static int og_cmd_schedule_get(json_t *element, struct og_msg_params *params,
 	struct og_dbi *dbi;
 	const char *key;
 	json_t *value;
-	int err;
+	int err = 0;
 
 	if (element) {
 		if (json_typeof(element) != JSON_OBJECT)
@@ -3715,12 +3708,10 @@ static int og_cmd_schedule_get(json_t *element, struct og_msg_params *params,
 							   &params->task_id);
 			} else if (!strcmp(key, "id")) {
 				err = og_json_parse_string(value, &params->id);
-			} else {
-				return -1;
 			}
 
 			if (err < 0)
-				break;
+				return err;
 		}
 	}
 
