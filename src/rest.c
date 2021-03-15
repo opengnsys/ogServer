@@ -3497,9 +3497,9 @@ static uint32_t og_tm_months_mask(struct tm *tm)
 	return 1 << tm->tm_mon;
 }
 
-static uint32_t og_tm_hours_mask(struct tm *tm)
+static uint16_t og_tm_hours_mask(struct tm *tm)
 {
-	return 1 << (tm->tm_hour - 12);
+	return tm->tm_hour >= 12 ? 1 << (tm->tm_hour - 12) : 1 << tm->tm_hour;
 }
 
 static uint32_t og_tm_ampm(struct tm *tm)
