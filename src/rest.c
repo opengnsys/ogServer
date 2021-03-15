@@ -3593,6 +3593,7 @@ static int og_cmd_schedule_create(json_t *element, struct og_msg_params *params)
 static int og_cmd_schedule_update(json_t *element, struct og_msg_params *params)
 {
 	struct og_dbi *dbi;
+	bool when = false;
 	const char *key;
 	json_t *value;
 	int err = 0;
@@ -3610,11 +3611,28 @@ static int og_cmd_schedule_update(json_t *element, struct og_msg_params *params)
 		} else if (!strcmp(key, "name")) {
 			err = og_json_parse_string(value, &params->name);
 			params->flags |= OG_REST_PARAM_NAME;
-		} else if (!strcmp(key, "when"))
+		} else if (!strcmp(key, "when")) {
 			err = og_json_parse_time_params(value, params);
+			when = true;
+		}
 
 		if (err < 0)
 			return err;
+	}
+
+	if (!when) {
+		params->time.check_stale = false;
+		og_schedule_time_now(&params->time);
+		params->flags |= OG_REST_PARAM_TIME_YEARS |
+				 OG_REST_PARAM_TIME_MONTHS |
+				 OG_REST_PARAM_TIME_WEEKS |
+				 OG_REST_PARAM_TIME_WEEK_DAYS |
+				 OG_REST_PARAM_TIME_DAYS |
+				 OG_REST_PARAM_TIME_HOURS |
+				 OG_REST_PARAM_TIME_AM_PM |
+				 OG_REST_PARAM_TIME_MINUTES;
+	} else {
+		params->time.check_stale = true;
 	}
 
 	if (!og_msg_params_validate(params, OG_REST_PARAM_ID |
