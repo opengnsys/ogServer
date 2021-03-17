@@ -329,12 +329,12 @@ bool WakeUp(int s, char* iph, char *mac, char *netmask, char *mar)
 	bool ret;
 	int i;
 
-	if (inet_aton(iph, &addr) < 0) {
+	if (!inet_aton(iph, &addr)) {
 		syslog(LOG_ERR, "bad IP address\n");
 		return false;
 	}
 
-	if (inet_aton(netmask, &netmask_addr) < 0) {
+	if (!inet_aton(netmask, &netmask_addr)) {
 		syslog(LOG_ERR, "bad netmask address: %s\n", netmask);
 		return false;
 	}
