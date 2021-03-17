@@ -471,8 +471,13 @@ static int og_cmd_wol(json_t *element, struct og_msg_params *params)
 	}
 
 	result = dbi_conn_queryf(dbi->conn,
-				 "SELECT ip, mac, mascara FROM ordenadores "
-				 "WHERE ip IN (%s)", ips_str);
+				 "SELECT ordenadores.ip, ordenadores.mac, "
+					"aulas.netmask "
+				 "FROM   ordenadores "
+				 "INNER JOIN aulas "
+					 "ON ordenadores.idaula = aulas.idaula "
+				 "WHERE  ordenadores.ip IN (%s)",
+				 ips_str);
 	if (!result) {
 		dbi_conn_error(dbi->conn, &msglog);
 		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
@@ -484,7 +489,7 @@ static int og_cmd_wol(json_t *element, struct og_msg_params *params)
 	for (i = 0; dbi_result_next_row(result); i++) {
 		params->ips_array[i] = dbi_result_get_string_copy(result, "ip");
 		params->mac_array[i] = dbi_result_get_string_copy(result, "mac");
-		params->netmask_array[i] = dbi_result_get_string_copy(result, "mascara");
+		params->netmask_array[i] = dbi_result_get_string_copy(result, "netmask");
 	}
 
 	dbi_result_free(result);
@@ -2185,8 +2190,12 @@ static int og_cmd_legacy_wol(const char *input, struct og_cmd *cmd)
 	}
 
 	result = dbi_conn_queryf(dbi->conn,
-				 "SELECT mascara FROM ordenadores "
-				 "WHERE ip = '%s'", cmd->ip);
+				 "SELECT aulas.netmask "
+				 "FROM   ordenadores "
+				 "INNER JOIN aulas "
+					 "ON ordenadores.idaula = aulas.idaula "
+				 "WHERE  ordenadores.ip = '%s'",
+				 cmd->ip);
 	if (!result) {
 		dbi_conn_error(dbi->conn, &msglog);
 		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
@@ -2198,7 +2207,7 @@ static int og_cmd_legacy_wol(const char *input, struct og_cmd *cmd)
 
 	og_cmd_init(cmd, OG_METHOD_NO_HTTP, OG_CMD_WOL, NULL);
 	cmd->params.netmask_array[0] = dbi_result_get_string_copy(result,
-								  "mascara");
+								  "netmask");
 	cmd->params.mac_array[0] = strdup(cmd->mac);
 	cmd->params.wol_type = strdup(wol_type);
 
