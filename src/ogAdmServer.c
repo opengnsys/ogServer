@@ -61,7 +61,7 @@ bool actualizaConfiguracion(struct og_dbi *dbi, char *cfg, int ido)
 		if (i == 0 && c == 1) {
 			splitCadena(ptrDual, ptrCfg[0], '=');
 			ser = ptrDual[1];
-			if (strlen(ser) > 0) {
+			if (ser && strlen(ser) > 0) {
 				// Solo actualizar si número de serie no existía.
 				result = dbi_conn_queryf(dbi->conn,
 						"UPDATE ordenadores SET numserie='%s'"
