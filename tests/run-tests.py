@@ -34,6 +34,9 @@ if os.path.isfile('/usr/bin/valgrind') is not True:
     print('You need valgrind to run these tests :-)')
     exit()
 
+print("Stopping ogServer service...")
+subprocess.run(['systemctl', 'stop', 'ogserver'])
+
 start_mysql();
 
 subprocess.Popen(['valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose --log-file=./valgrind-out.log ../ogserver -f config/ogserver.json'], shell=True)
