@@ -495,8 +495,11 @@ static int og_cmd_wol(json_t *element, struct og_msg_params *params)
 	dbi_result_free(result);
 	og_dbi_close(dbi);
 
+	if (i == 0)
+		return 0;
+
 	if (!Levanta((char **)params->ips_array, (char **)params->mac_array,
-		     (char **)params->netmask_array, params->ips_array_len,
+		     (char **)params->netmask_array, i,
 		     (char *)params->wol_type))
 		return -1;
 
