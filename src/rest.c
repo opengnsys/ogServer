@@ -4128,7 +4128,7 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 		}
 
 		if (root) {
-			err = og_client_method_not_found(cli);
+			err = og_client_bad_request(cli);
 			goto err_process_rest_payload;
 		}
 
