@@ -3770,6 +3770,29 @@ static int og_cmd_schedule_get(json_t *element, struct og_msg_params *params,
 	return err;
 }
 
+#define OG_LIVE_JSON_FILE_PATH "/opt/opengnsys/etc/ogliveinfo.json"
+
+static int og_cmd_oglive_list(char *buffer_reply)
+{
+	struct og_buffer og_buffer = {
+		.data = buffer_reply
+	};
+	json_error_t json_err;
+	json_t *root;
+
+	root = json_load_file(OG_LIVE_JSON_FILE_PATH, 0, &json_err);
+	if (!root) {
+		syslog(LOG_ERR, "malformed json line %d: %s\n",
+		       json_err.line, json_err.text);
+		return -1;
+	}
+
+	json_dump_callback(root, og_json_dump_clients, &og_buffer, 0);
+	json_decref(root);
+
+	return 0;
+}
+
 static int og_client_method_not_found(struct og_client *cli)
 {
 	/* To meet RFC 7231, this function MUST generate an Allow header field
@@ -4241,6 +4264,14 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 		}
 
 		err = og_cmd_schedule_get(root, &params, buf_reply);
+	} else if (!strncmp(cmd, "oglive/list",
+			    strlen("oglive/list"))) {
+		if (method != OG_METHOD_GET) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
+
+		err = og_cmd_oglive_list(buf_reply);
 	} else {
 		syslog(LOG_ERR, "unknown command: %.32s ...\n", cmd);
 		err = og_client_not_found(cli);
