@@ -135,6 +135,24 @@ int og_dbi_add_image(struct og_dbi *dbi, const struct og_image *image)
 	dbi_result result;
 
 	result = dbi_conn_queryf(dbi->conn,
+				 "SELECT nombreca FROM imagenes WHERE nombreca = '%s'",
+				 image->name);
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		return -1;
+	}
+
+	if (dbi_result_next_row(result)) {
+		syslog(LOG_ERR, "image creation attempt with already used image name (%s:%d)\n",
+		       __func__, __LINE__);
+		dbi_result_free(result);
+		return -1;
+	}
+	dbi_result_free(result);
+
+	result = dbi_conn_queryf(dbi->conn,
 				 "INSERT INTO imagenes (nombreca, "
 				 "descripcion, "
 				 "idperfilsoft, "
