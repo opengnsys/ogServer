@@ -81,6 +81,7 @@ struct og_msg_params {
 	const char	*profile;
 	const char	*cache;
 	const char	*cache_size;
+	const char	*comment;
 	bool		echo;
 	struct og_partition	partition_setup[OG_PARTITION_MAX];
 	struct og_sync_params sync_setup;

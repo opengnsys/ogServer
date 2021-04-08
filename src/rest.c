@@ -3793,6 +3793,82 @@ static int og_cmd_oglive_list(char *buffer_reply)
 	return 0;
 }
 
+static int og_cmd_post_center_add(json_t *element,
+				  struct og_msg_params *params,
+				  char *buffer_reply)
+{
+	const char *key, *msglog;
+	struct og_dbi *dbi;
+	dbi_result result;
+	json_t *value;
+	int err = 0;
+
+	json_object_foreach(element, key, value) {
+		if (!strcmp(key, "name")) {
+			err = og_json_parse_string(value, &params->name);
+			params->flags |= OG_REST_PARAM_NAME;
+		} else if (!strcmp(key, "comment")) {
+			err = og_json_parse_string(value, &params->comment);
+		}
+
+		if (err < 0)
+			return err;
+	}
+
+	if (!og_msg_params_validate(params, OG_REST_PARAM_NAME))
+		return -1;
+	if (!params->comment)
+		params->comment = "";
+
+	dbi = og_dbi_open(&ogconfig.db);
+	if (!dbi) {
+		syslog(LOG_ERR, "cannot open conection database (%s:%d)\n",
+		       __func__, __LINE__);
+		return -1;
+	}
+
+	result = dbi_conn_queryf(dbi->conn,
+				 "SELECT nombrecentro FROM centros WHERE nombrecentro='%s'",
+				 params->name);
+
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		og_dbi_close(dbi);
+		return -1;
+	}
+
+	if (dbi_result_get_numrows(result) > 0) {
+		syslog(LOG_ERR, "Center with name %s already exists\n",
+		       params->name);
+		dbi_result_free(result);
+		og_dbi_close(dbi);
+		return -1;
+	}
+	dbi_result_free(result);
+
+	result = dbi_conn_queryf(dbi->conn,
+				 "INSERT INTO centros("
+				 "  nombrecentro,"
+				 "  comentarios,"
+				 "  identidad) VALUES ("
+				 "'%s', '%s', 1)",
+				 params->name, params->comment);
+
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR, "failed to add center to database (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		og_dbi_close(dbi);
+		return -1;
+	}
+
+	dbi_result_free(result);
+	og_dbi_close(dbi);
+	return 0;
+}
+
 static int og_client_method_not_found(struct og_client *cli)
 {
 	/* To meet RFC 7231, this function MUST generate an Allow header field
@@ -4272,6 +4348,14 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 		}
 
 		err = og_cmd_oglive_list(buf_reply);
+	} else if (!strncmp(cmd, "center/add",
+			    strlen("center/add"))) {
+		if (method != OG_METHOD_POST) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
+
+		err = og_cmd_post_center_add(root, &params, buf_reply);
 	} else {
 		syslog(LOG_ERR, "unknown command: %.32s ...\n", cmd);
 		err = og_client_not_found(cli);
