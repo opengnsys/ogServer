@@ -242,6 +242,7 @@ static void og_schedule_create_weekdays(int month, int year,
 				tm.tm_mday = month_days[k];
 				tm.tm_hour = hours[l] - 1;
 				tm.tm_min = minutes;
+				tm.tm_isdst = -1;
 				seconds = mktime(&tm);
 
 				if (check_stale && og_schedule_stale(seconds))
@@ -298,6 +299,7 @@ static void og_schedule_create_weeks(int month, int year,
 				tm.tm_mday = month_days[k];
 				tm.tm_hour = hours[l] - 1;
 				tm.tm_min = minutes;
+				tm.tm_isdst = -1;
 				seconds = mktime(&tm);
 
 				if (check_stale && og_schedule_stale(seconds))
@@ -337,6 +339,7 @@ static void og_schedule_create_days(int month, int year,
 			tm.tm_mday = days[k];
 			tm.tm_hour = hours[l] - 1;
 			tm.tm_min = minutes;
+			tm.tm_isdst = -1;
 			seconds = mktime(&tm);
 
 			if (check_stale && og_schedule_stale(seconds))
