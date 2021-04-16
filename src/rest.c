@@ -348,9 +348,16 @@ struct og_buffer {
 	int	len;
 };
 
+#define OG_MSG_RESPONSE_MAXLEN	65536
+
 static int og_json_dump_clients(const char *buffer, size_t size, void *data)
 {
 	struct og_buffer *og_buffer = (struct og_buffer *)data;
+
+	if (size >= OG_MSG_RESPONSE_MAXLEN - og_buffer->len) {
+		syslog(LOG_ERR, "Response JSON body is too large\n");
+		return -1;
+	}
 
 	memcpy(og_buffer->data + og_buffer->len, buffer, size);
 	og_buffer->len += size;
@@ -402,7 +409,11 @@ static int og_cmd_get_clients(json_t *element, struct og_msg_params *params,
 		return -1;
 	}
 
-	json_dump_callback(root, og_json_dump_clients, &og_buffer, 0);
+	if (json_dump_callback(root, og_json_dump_clients, &og_buffer, 0)) {
+		json_decref(root);
+		return -1;
+	}
+
 	json_decref(root);
 
 	return 0;
@@ -650,7 +661,11 @@ static int og_cmd_run_get(json_t *element, struct og_msg_params *params,
 	if (!root)
 		return -1;
 
-	json_dump_callback(root, og_json_dump_clients, &og_buffer, 0);
+	if (json_dump_callback(root, og_json_dump_clients, &og_buffer, 0)) {
+		json_decref(root);
+		return -1;
+	}
+
 	json_decref(root);
 
 	return 0;
@@ -779,7 +794,11 @@ static int og_cmd_get_session(json_t *element, struct og_msg_params *params,
 
 	json_object_set_new(root, "sessions", array);
 
-	json_dump_callback(root, og_json_dump_clients, &og_buffer, 0);
+	if (json_dump_callback(root, og_json_dump_clients, &og_buffer, 0)) {
+		json_decref(root);
+		return -1;
+	}
+
 	json_decref(root);
 	return 0;
 }
@@ -894,9 +913,13 @@ static int og_cmd_get_modes(json_t *element, struct og_msg_params *params,
 		json_array_append_new(modes, json_string(dent->d_name));
 		dent = readdir(d);
 	}
-
 	json_object_set_new(root, "modes", modes);
-	json_dump_callback(root, og_json_dump_clients, &og_buffer, 0);
+
+	if (json_dump_callback(root, og_json_dump_clients, &og_buffer, 0)) {
+		json_decref(root);
+		return -1;
+	}
+
 	json_decref(root);
 	closedir(d);
 
@@ -1230,7 +1253,11 @@ static int og_cmd_get_client_setup(json_t *element,
 	dbi_result_free(result);
 	og_dbi_close(dbi);
 
-	json_dump_callback(root, og_json_dump_clients, &og_buffer, 0);
+	if (json_dump_callback(root, og_json_dump_clients, &og_buffer, 0)) {
+		json_decref(root);
+		return -1;
+	}
+
 	json_decref(root);
 	return 0;
 }
@@ -1305,7 +1332,11 @@ static int og_cmd_get_client_info(json_t *element,
 	json_object_set_new(root, "id", json_integer(computer.id));
 	json_object_set_new(root, "ip", json_string(computer.ip));
 
-	json_dump_callback(root, og_json_dump_clients, &og_buffer, 0);
+	if (json_dump_callback(root, og_json_dump_clients, &og_buffer, 0)) {
+		json_decref(root);
+		return -1;
+	}
+
 	json_decref(root);
 	return 0;
 }
@@ -1622,7 +1653,11 @@ static int og_cmd_get_hardware(json_t *element, struct og_msg_params *params,
 
 	json_object_set_new(root, "hardware", array);
 
-	json_dump_callback(root, og_json_dump_clients, &og_buffer, 0);
+	if (json_dump_callback(root, og_json_dump_clients, &og_buffer, 0)) {
+		json_decref(root);
+		return -1;
+	}
+
 	json_decref(root);
 	return 0;
 }
@@ -1749,7 +1784,11 @@ static int og_cmd_get_software(json_t *element, struct og_msg_params *params,
 	}
 	json_object_set_new(root, "software", software);
 
-	json_dump_callback(root, og_json_dump_clients, &og_buffer, 0);
+	if (json_dump_callback(root, og_json_dump_clients, &og_buffer, 0)) {
+		json_decref(root);
+		return -1;
+	}
+
 	json_decref(root);
 	return 0;
 }
@@ -1909,7 +1948,11 @@ static int og_cmd_images(char *buffer_reply)
 
 	json_object_set_new(root, "disk", disk_json);
 
-	json_dump_callback(root, og_json_dump_clients, &og_buffer, 0);
+	if (json_dump_callback(root, og_json_dump_clients, &og_buffer, 0)) {
+		json_decref(root);
+		return -1;
+	}
+
 	json_decref(root);
 
 	return 0;
@@ -3195,7 +3238,11 @@ static int og_cmd_scope_get(json_t *element, struct og_msg_params *params,
 
 	og_dbi_close(dbi);
 
-	json_dump_callback(root, og_json_dump_clients, &og_buffer, 0);
+	if (json_dump_callback(root, og_json_dump_clients, &og_buffer, 0)) {
+		json_decref(root);
+		return -1;
+	}
+
 	json_decref(root);
 
 	return 0;
@@ -3763,7 +3810,8 @@ static int og_cmd_schedule_get(json_t *element, struct og_msg_params *params,
 	og_dbi_close(dbi);
 
 	if (err >= 0)
-		json_dump_callback(schedule_root, og_json_dump_clients, &og_buffer, 0);
+		err = json_dump_callback(schedule_root, og_json_dump_clients,
+					 &og_buffer, 0);
 
 	json_decref(schedule_root);
 
@@ -3787,7 +3835,11 @@ static int og_cmd_oglive_list(char *buffer_reply)
 		return -1;
 	}
 
-	json_dump_callback(root, og_json_dump_clients, &og_buffer, 0);
+	if (json_dump_callback(root, og_json_dump_clients, &og_buffer, 0)) {
+		json_decref(root);
+		return -1;
+	}
+
 	json_decref(root);
 
 	return 0;
@@ -3920,8 +3972,6 @@ static int og_server_internal_error(struct og_client *cli)
 
 	return -1;
 }
-
-#define OG_MSG_RESPONSE_MAXLEN	65536
 
 static int og_client_ok(struct og_client *cli, char *buf_reply)
 {
