@@ -1024,19 +1024,6 @@ bool cuestionPerfilSoftware(struct og_dbi *dbi, char *idc, char *ido,
 
 	/* DEPURACIÓN DE PERFILES SOFTWARE */
 
-	 /* Eliminar Relación de softwares con Perfiles software que quedan húerfanos */
-	result = dbi_conn_queryf(dbi->conn,
-		"DELETE FROM perfilessoft_softwares WHERE idperfilsoft IN "\
-		" (SELECT idperfilsoft FROM perfilessoft WHERE idperfilsoft NOT IN"\
-		" (SELECT DISTINCT idperfilsoft from ordenadores_particiones) AND idperfilsoft NOT IN"\
-		" (SELECT DISTINCT idperfilsoft from imagenes))");
-	if (!result) {
-		dbi_conn_error(dbi->conn, &msglog);
-		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
-		       __func__, __LINE__, msglog);
-		return false;
-	}
-	dbi_result_free(result),
 	/* Eliminar Perfiles software que quedan húerfanos */
 	result = dbi_conn_queryf(dbi->conn,
 		"DELETE FROM perfilessoft WHERE idperfilsoft NOT IN"
