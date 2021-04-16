@@ -3976,17 +3976,21 @@ static int og_server_internal_error(struct og_client *cli)
 static int og_client_ok(struct og_client *cli, char *buf_reply)
 {
 	char buf[OG_MSG_RESPONSE_MAXLEN] = {};
-	int err = 0, len;
+	int len;
 
 	len = snprintf(buf, sizeof(buf),
 		       "HTTP/1.1 200 OK\r\nContent-Length: %ld\r\n\r\n%s",
 		       strlen(buf_reply), buf_reply);
-	if (len >= (int)sizeof(buf))
-		err = og_server_internal_error(cli);
+	if (len >= (int)sizeof(buf)) {
+		syslog(LOG_ERR, "HTTP response to %s:%hu is too large\n",
+		       inet_ntoa(cli->addr.sin_addr),
+		       ntohs(cli->addr.sin_port));
+		return og_server_internal_error(cli);
+	}
 
 	send(og_client_socket(cli), buf, strlen(buf), 0);
 
-	return err;
+	return 0;
 }
 
 int og_client_state_process_payload_rest(struct og_client *cli)
@@ -4416,14 +4420,7 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 	if (err < 0)
 		return og_client_bad_request(cli);
 
-	err = og_client_ok(cli, buf_reply);
-	if (err < 0) {
-		syslog(LOG_ERR, "HTTP response to %s:%hu is too large\n",
-		       inet_ntoa(cli->addr.sin_addr),
-		       ntohs(cli->addr.sin_port));
-	}
-
-	return err;
+	return og_client_ok(cli, buf_reply);
 
 err_process_rest_payload:
 	json_decref(root);
