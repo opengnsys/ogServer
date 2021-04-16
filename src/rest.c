@@ -348,7 +348,7 @@ struct og_buffer {
 	int	len;
 };
 
-#define OG_MSG_RESPONSE_MAXLEN	65536
+#define OG_MSG_RESPONSE_MAXLEN	262144
 
 static int og_json_dump_clients(const char *buffer, size_t size, void *data)
 {
