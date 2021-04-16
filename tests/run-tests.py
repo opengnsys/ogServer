@@ -14,7 +14,8 @@ def start_mysql():
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     subprocess.run(['mysqladmin', 'create', 'test-db'])
     subprocess.run('mysql --default-character-set=utf8 test-db < ../cfg/ogAdmBD.sql', shell=True)
-    subprocess.run(['mysql', '-D', 'test-db', '-e', sql_data])
+    subprocess.run('mysql --default-character-set=utf8 test-db '
+                   '< config/basic_data.sql', shell=True)
     subprocess.run(['mysql', '-D', 'test-db', '-e', sql_create_user])
 
 def stop_mysql():
