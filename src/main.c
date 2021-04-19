@@ -87,6 +87,9 @@ int main(int argc, char *argv[])
 	ev_io_init(&ev_io_agent_rest, og_server_accept_cb, socket_agent_rest, EV_READ);
 	ev_io_start(og_loop, &ev_io_agent_rest);
 
+	if (og_dbi_schema_update() < 0)
+		exit(EXIT_FAILURE);
+
 	if (og_dbi_schedule_get() < 0) {
 		syslog(LOG_ERR, "Cannot connect to database\n");
 		exit(EXIT_FAILURE);

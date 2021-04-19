@@ -93,4 +93,6 @@ int og_dbi_get_computer_info(struct og_dbi *dbi, struct og_computer *computer,
 			     struct in_addr addr);
 int og_dbi_add_image(struct og_dbi *dbi, const struct og_image *image);
 
+int og_dbi_schema_update(void);
+
 #endif

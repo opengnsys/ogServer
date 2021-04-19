@@ -8,6 +8,7 @@ ogserver_SOURCES= src/ogAdmServer.c	\
 		  src/dbi.c		\
 		  src/main.c		\
 		  src/schedule.c	\
+		  src/schema.c		\
 		  src/utils.c		\
 		  src/rest.c		\
 		  src/client.c		\
