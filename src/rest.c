@@ -73,6 +73,7 @@ struct ev_loop *og_loop;
 #define OG_REST_PARAM_NETMASK			(1UL << 40)
 #define OG_REST_PARAM_SCOPE			(1UL << 41)
 #define OG_REST_PARAM_MODE			(1UL << 42)
+#define OG_REST_PARAM_CENTER			(1UL << 43)
 
 static LIST_HEAD(client_list);
 
@@ -3921,6 +3922,115 @@ static int og_cmd_post_center_add(json_t *element,
 	return 0;
 }
 
+static int og_cmd_post_room_add(json_t *element,
+				struct og_msg_params *params)
+{
+	struct og_room room = {};
+	const char *key, *msglog;
+	struct og_dbi *dbi;
+	dbi_result result;
+	json_t *value;
+	int err = 0;
+
+	json_object_foreach(element, key, value) {
+		if (!strcmp(key, "name")) {
+			err = og_json_parse_string_copy(value, room.name,
+							sizeof(room.name));
+			params->flags |= OG_REST_PARAM_NAME;
+		} else if (!strcmp(key, "location")) {
+			err = og_json_parse_string_copy(value, room.location,
+							sizeof(room.location));
+		} else if (!strcmp(key, "gateway")) {
+			err = og_json_parse_string_copy(value, room.gateway,
+							sizeof(room.gateway));
+		} else if (!strcmp(key, "netmask")) {
+			err = og_json_parse_string_copy(value, room.netmask,
+							sizeof(room.netmask));
+			params->flags |= OG_REST_PARAM_NETMASK;
+		} else if (!strcmp(key, "ntp")) {
+			err = og_json_parse_string_copy(value, room.ntp,
+							sizeof(room.ntp));
+		} else if (!strcmp(key, "dns")) {
+			err = og_json_parse_string_copy(value, room.dns,
+							sizeof(room.dns));
+		} else if (!strcmp(key, "center")) {
+			err = og_json_parse_uint(value, &room.center);
+			params->flags |= OG_REST_PARAM_CENTER;
+		} else if (!strcmp(key, "group")) {
+			err = og_json_parse_uint(value, &room.group);
+		} else if (!strcmp(key, "remote")) {
+			err = og_json_parse_bool(value, &room.remote);
+		}
+
+		if (err < 0)
+			return err;
+	}
+
+	if (!og_msg_params_validate(params, OG_REST_PARAM_NAME |
+					    OG_REST_PARAM_NETMASK |
+					    OG_REST_PARAM_CENTER))
+		return -1;
+
+	dbi = og_dbi_open(&ogconfig.db);
+	if (!dbi) {
+		syslog(LOG_ERR, "cannot open conection database (%s:%d)\n",
+		       __func__, __LINE__);
+		return -1;
+	}
+
+	result = dbi_conn_queryf(dbi->conn,
+				 "SELECT nombreaula FROM aulas "
+				 "WHERE nombreaula='%s' AND idcentro=%d",
+				 room.name, room.center);
+
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		og_dbi_close(dbi);
+		return -1;
+	}
+
+	if (dbi_result_get_numrows(result) > 0) {
+		syslog(LOG_ERR, "Room with name %s already exists in the "
+				"center with id %d\n",
+		       room.name, room.center);
+		dbi_result_free(result);
+		og_dbi_close(dbi);
+		return -1;
+	}
+	dbi_result_free(result);
+
+	result = dbi_conn_queryf(dbi->conn,
+				 "INSERT INTO aulas("
+				 "  idcentro,"
+				 "  nombreaula,"
+				 "  netmask,"
+				 "  grupoid,"
+				 "  ubicacion,"
+				 "  router,"
+				 "  dns,"
+				 "  ntp,"
+				 "  inremotepc) VALUES ("
+				 "%d, '%s', '%s', %d, '%s', "
+				 "'%s', '%s', '%s', %d)",
+				 room.center, room.name, room.netmask,
+				 room.group, room.location, room.gateway,
+				 room.dns, room.ntp, room.remote);
+
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR, "failed to add room to database (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		og_dbi_close(dbi);
+		return -1;
+	}
+
+	dbi_result_free(result);
+	og_dbi_close(dbi);
+	return 0;
+}
+
 static int og_client_method_not_found(struct og_client *cli)
 {
 	/* To meet RFC 7231, this function MUST generate an Allow header field
@@ -4410,6 +4520,19 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 		}
 
 		err = og_cmd_post_center_add(root, &params, buf_reply);
+	} else if (!strncmp(cmd, "room/add",
+			    strlen("room/add"))) {
+		if (method != OG_METHOD_POST) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
+
+		if (!root) {
+			syslog(LOG_ERR, "command task with no payload\n");
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
+		}
+		err = og_cmd_post_room_add(root, &params);
 	} else {
 		syslog(LOG_ERR, "unknown command: %.32s ...\n", cmd);
 		err = og_client_not_found(cli);

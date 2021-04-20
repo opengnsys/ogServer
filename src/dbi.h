@@ -24,6 +24,7 @@ void og_dbi_close(struct og_dbi *db);
 #define OG_DB_COMPUTER_NAME_MAXLEN	100
 #define OG_DB_CENTER_NAME_MAXLEN	100
 #define OG_DB_ROOM_NAME_MAXLEN		100
+#define OG_DB_ROOM_LOC_MAXLEN		255
 #define OG_DB_SERIAL_NUMBER_MAXLEN	25
 #define OG_DB_IMAGE_DESCRIPTION_MAXLEN 	250
 #define OG_DB_IMAGE_NAME_MAXLEN 50
@@ -86,6 +87,18 @@ struct og_computer {
 	char		boot[OG_DB_BOOT_MAXLEN + 1];
 	char		mac[OG_DB_MAC_MAXLEN + 1];
 	char		ip[OG_DB_IP_MAXLEN + 1];
+};
+
+struct og_room {
+	uint32_t	center;
+	uint32_t	group;
+	char		location[OG_DB_ROOM_LOC_MAXLEN + 1];
+	char		name[OG_DB_ROOM_NAME_MAXLEN + 1];
+	char		gateway[OG_DB_IP_MAXLEN + 1];
+	char		netmask[OG_DB_IP_MAXLEN + 1];
+	char		ntp[OG_DB_IP_MAXLEN + 1];
+	char		dns[OG_DB_IP_MAXLEN + 1];
+	bool		remote;
 };
 
 struct in_addr;
