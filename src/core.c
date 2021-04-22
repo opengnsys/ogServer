@@ -19,6 +19,7 @@
 #include <ifaddrs.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <netinet/tcp.h>
 #include <fcntl.h>
 #include <jansson.h>
 #include <time.h>
@@ -313,10 +314,16 @@ static void og_agent_send_refresh(struct og_client *cli)
 /* Agent client operation might take longer, shut down after 30 seconds. */
 #define OG_AGENT_CLIENT_TIMEOUT 30
 
+#define OG_TCP_KEEPALIVE_IDLE	60
+#define OG_TCP_KEEPALIVE_INTL	30
+#define OG_TCP_KEEPALIVE_CNT	4
+
 int socket_rest, socket_agent_rest;
 
 void og_server_accept_cb(struct ev_loop *loop, struct ev_io *io, int events)
 {
+	int intl = OG_TCP_KEEPALIVE_INTL, cnt = OG_TCP_KEEPALIVE_CNT;
+	int on = 1, idle = OG_TCP_KEEPALIVE_IDLE;
 	struct sockaddr_in client_addr;
 	socklen_t addrlen = sizeof(client_addr);
 	struct og_client *cli;
@@ -330,6 +337,11 @@ void og_server_accept_cb(struct ev_loop *loop, struct ev_io *io, int events)
 		syslog(LOG_ERR, "cannot accept client connection\n");
 		return;
 	}
+
+	setsockopt(client_sd, SOL_SOCKET, SO_KEEPALIVE, &on, sizeof(int));
+	setsockopt(client_sd, IPPROTO_TCP, TCP_KEEPIDLE, &idle, sizeof(int));
+	setsockopt(client_sd, IPPROTO_TCP, TCP_KEEPINTVL, &intl, sizeof(int));
+	setsockopt(client_sd, IPPROTO_TCP, TCP_KEEPCNT, &cnt, sizeof(int));
 
 	cli = (struct og_client *)calloc(1, sizeof(struct og_client));
 	if (!cli) {
