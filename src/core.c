@@ -11,6 +11,7 @@
 #include "utils.h"
 #include "list.h"
 #include "rest.h"
+#include "wol.h"
 #include "client.h"
 #include "json.h"
 #include "schedule.h"
@@ -326,6 +327,7 @@ void og_server_accept_cb(struct ev_loop *loop, struct ev_io *io, int events)
 	int on = 1, idle = OG_TCP_KEEPALIVE_IDLE;
 	struct sockaddr_in client_addr;
 	socklen_t addrlen = sizeof(client_addr);
+	struct og_client_wol *cli_wol;
 	struct og_client *cli;
 	int client_sd;
 
@@ -342,6 +344,10 @@ void og_server_accept_cb(struct ev_loop *loop, struct ev_io *io, int events)
 	setsockopt(client_sd, IPPROTO_TCP, TCP_KEEPIDLE, &idle, sizeof(int));
 	setsockopt(client_sd, IPPROTO_TCP, TCP_KEEPINTVL, &intl, sizeof(int));
 	setsockopt(client_sd, IPPROTO_TCP, TCP_KEEPCNT, &cnt, sizeof(int));
+
+	cli_wol = og_client_wol_find(&client_addr.sin_addr);
+	if (cli_wol)
+		og_client_wol_destroy(cli_wol);
 
 	cli = (struct og_client *)calloc(1, sizeof(struct og_client));
 	if (!cli) {

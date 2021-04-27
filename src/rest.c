@@ -11,6 +11,7 @@
 #include "utils.h"
 #include "list.h"
 #include "rest.h"
+#include "wol.h"
 #include "cfg.h"
 #include "schedule.h"
 #include <ev.h>
@@ -76,6 +77,7 @@ struct ev_loop *og_loop;
 #define OG_REST_PARAM_CENTER			(1UL << 43)
 
 static LIST_HEAD(client_list);
+static LIST_HEAD(client_wol_list);
 
 void og_client_add(struct og_client *cli)
 {
@@ -391,18 +393,52 @@ static int og_json_client_append(json_t *array, struct og_client *client)
 	return 0;
 }
 
+static int og_json_client_wol_append(json_t *array,
+				     struct og_client_wol *cli_wol)
+{
+	json_t *addr, *state, *object;
+
+	object = json_object();
+	if (!object)
+		return -1;
+
+	addr = json_string(inet_ntoa(cli_wol->addr));
+	if (!addr) {
+		json_decref(object);
+		return -1;
+	}
+	json_object_set_new(object, "addr", addr);
+	state = json_string(og_client_wol_status(cli_wol));
+	if (!state) {
+		json_decref(object);
+		return -1;
+	}
+	json_object_set_new(object, "state", state);
+	json_array_append_new(array, object);
+
+	return 0;
+}
+
 static int og_cmd_get_clients(json_t *element, struct og_msg_params *params,
 			      char *buffer_reply)
 {
-	struct og_client *client;
 	struct og_buffer og_buffer = {
 		.data	= buffer_reply,
 	};
+	struct og_client_wol *cli_wol;
+	struct og_client *client;
 	json_t *array, *root;
 
 	array = json_array();
 	if (!array)
 		return -1;
+
+	list_for_each_entry(cli_wol, &client_wol_list, list) {
+		if (og_json_client_wol_append(array, cli_wol) < 0) {
+			json_decref(array);
+			return -1;
+		}
+	}
 
 	list_for_each_entry(client, &client_list, list) {
 		if (!client->agent)
@@ -450,10 +486,24 @@ static int og_json_parse_type(json_t *element, struct og_msg_params *params)
 	return 0;
 }
 
+struct og_client_wol *og_client_wol_find(const struct in_addr *addr)
+{
+	struct og_client_wol *cli_wol;
+
+	list_for_each_entry(cli_wol, &client_wol_list, list) {
+		if (cli_wol->addr.s_addr == addr->s_addr)
+			return cli_wol;
+	}
+
+	return NULL;
+}
+
 static int og_cmd_wol(json_t *element, struct og_msg_params *params)
 {
 	char ips_str[(OG_DB_IP_MAXLEN + 1) * OG_CLIENTS_MAX + 1] = {};
+	struct og_client_wol *cli_wol;
 	int ips_str_len = 0;
+	struct in_addr addr;
 	const char *msglog;
 	struct og_dbi *dbi;
 	int err = 0, i = 0;
@@ -519,6 +569,23 @@ static int og_cmd_wol(json_t *element, struct og_msg_params *params)
 
 	if (i == 0)
 		return 0;
+
+	for (i = 0; i < params->ips_array_len; i++) {
+		if (inet_aton(params->ips_array[i], &addr) < 0)
+			return -1;
+
+		cli_wol = og_client_wol_find(&addr);
+		if (cli_wol) {
+			og_client_wol_refresh(cli_wol);
+			continue;
+		}
+
+		cli_wol = og_client_wol_create(&addr);
+		if (!cli_wol)
+			return -1;
+
+		list_add_tail(&cli_wol->list, &client_wol_list);
+	}
 
 	if (!Levanta((char **)params->ips_array, (char **)params->mac_array,
 		     (char **)params->netmask_array, i,
