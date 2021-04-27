@@ -366,14 +366,39 @@ static int og_json_dump_clients(const char *buffer, size_t size, void *data)
 	return 0;
 }
 
+static int og_json_client_append(json_t *array, struct og_client *client)
+{
+	json_t *addr, *state, *object;
+
+	object = json_object();
+	if (!object)
+		return -1;
+
+	addr = json_string(inet_ntoa(client->addr.sin_addr));
+	if (!addr) {
+		json_decref(object);
+		return -1;
+	}
+	json_object_set_new(object, "addr", addr);
+	state = json_string(og_client_status(client));
+	if (!state) {
+		json_decref(object);
+		return -1;
+	}
+	json_object_set_new(object, "state", state);
+	json_array_append_new(array, object);
+
+	return 0;
+}
+
 static int og_cmd_get_clients(json_t *element, struct og_msg_params *params,
 			      char *buffer_reply)
 {
-	json_t *root, *array, *addr, *state, *object;
 	struct og_client *client;
 	struct og_buffer og_buffer = {
 		.data	= buffer_reply,
 	};
+	json_t *array, *root;
 
 	array = json_array();
 	if (!array)
@@ -383,27 +408,12 @@ static int og_cmd_get_clients(json_t *element, struct og_msg_params *params,
 		if (!client->agent)
 			continue;
 
-		object = json_object();
-		if (!object) {
+		if (og_json_client_append(array, client) < 0) {
 			json_decref(array);
 			return -1;
 		}
-		addr = json_string(inet_ntoa(client->addr.sin_addr));
-		if (!addr) {
-			json_decref(object);
-			json_decref(array);
-			return -1;
-		}
-		json_object_set_new(object, "addr", addr);
-		state = json_string(og_client_status(client));
-		if (!state) {
-			json_decref(object);
-			json_decref(array);
-			return -1;
-		}
-		json_object_set_new(object, "state", state);
-		json_array_append_new(array, object);
 	}
+
 	root = json_pack("{s:o}", "clients", array);
 	if (!root) {
 		json_decref(array);
