@@ -16,6 +16,36 @@
 #include <string.h>
 #include <stdio.h>
 
+#define OG_SCHEMA_STMTS_V2      7
+
+static const char *stmts_v2[OG_SCHEMA_STMTS_V2] = {
+	[0] 	=	"ALTER TABLE `aulas` "
+			"ADD CONSTRAINT FK_centros "
+			"FOREIGN KEY (`idcentro`) "
+			"REFERENCES `centros` (`idcentro`) ON DELETE CASCADE",
+	[1] 	= 	"ALTER TABLE `ordenadores` "
+			"ADD CONSTRAINT FK_aulas "
+			"FOREIGN KEY (`idaula`) "
+			"REFERENCES `aulas` (`idaula`) ON DELETE CASCADE",
+	[2] 	=	"ALTER TABLE `ordenadores_particiones` "
+			"ADD CONSTRAINT FK_ordenadores "
+			"FOREIGN KEY (`idordenador`) "
+			"REFERENCES `ordenadores` (`idordenador`) ON DELETE CASCADE",
+	[3] 	=	"DELETE PS FROM perfilessoft_softwares AS PS "
+			"WHERE NOT EXISTS ("
+			"SELECT null FROM softwares AS S "
+			"WHERE S.idsoftware = PS.idsoftware)",
+	[4] 	=	"ALTER TABLE `perfilessoft_softwares` "
+			"ADD CONSTRAINT FK_softwares "
+			"FOREIGN KEY (`idsoftware`) "
+			"REFERENCES `softwares` (`idsoftware`) ON DELETE CASCADE",
+	[5]	=	"ALTER TABLE `perfilessoft_softwares` "
+			"ADD CONSTRAINT FK_perfilessoft "
+			"FOREIGN KEY (`idperfilsoft`) "
+			"REFERENCES `perfilessoft` (`idperfilsoft`) ON DELETE CASCADE",
+	[6]	=	"UPDATE version SET version = 2",
+};
+
 struct og_server_cfg ogconfig;
 
 static int og_dbi_create_version(struct og_dbi *dbi)
@@ -72,6 +102,7 @@ static int og_dbi_schema_version(struct og_dbi *dbi)
 
 	return version;
 }
+
 static int og_dbi_schema_v1(struct og_dbi *dbi)
 {
 	const char *msglog, *command;
@@ -108,11 +139,50 @@ static int og_dbi_schema_v1(struct og_dbi *dbi)
 	return 0;
 }
 
+static int og_dbi_schema_v2(struct og_dbi *dbi)
+{
+	const char *msglog;
+	dbi_result result;
+	int ret, i;
+
+	ret = dbi_conn_transaction_begin(dbi->conn);
+	if (ret) {
+		syslog(LOG_DEBUG, "could not begin a transaction (%s:%d)\n",
+		       __func__, __LINE__);
+		goto err_no_trans;
+	}
+
+	for (i = 0; i < OG_SCHEMA_STMTS_V2; i++) {
+		result = dbi_conn_query(dbi->conn, stmts_v2[i]);
+		if (!result) {
+			dbi_conn_error(dbi->conn, &msglog);
+			syslog(LOG_ERR, "Statement number %d failed (%s:%d): %s\n",
+					i, __func__, __LINE__, msglog);
+			goto err_trans;
+		}
+		dbi_result_free(result);
+	}
+
+	ret = dbi_conn_transaction_commit(dbi->conn);
+	if (ret) {
+		syslog(LOG_DEBUG, "could not commit a transaction (%s:%d)\n",
+		       __func__, __LINE__);
+		goto err_trans;
+	}
+	return 0;
+
+err_trans:
+	dbi_conn_transaction_rollback(dbi->conn);
+err_no_trans:
+	return -1;
+}
+
 static struct og_schema_version {
 	int	version;
 	int	(*update)(struct og_dbi *dbi);
 } schema_version[] = {
 	{	.version = 1,	.update = og_dbi_schema_v1	},
+	{	.version = 2,	.update = og_dbi_schema_v2	},
 	{	0,		NULL				},
 };
 
