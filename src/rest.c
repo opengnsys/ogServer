@@ -571,6 +571,9 @@ static int og_cmd_wol(json_t *element, struct og_msg_params *params)
 		return 0;
 
 	for (i = 0; i < params->ips_array_len; i++) {
+		if (og_client_find(params->ips_array[i]))
+			continue;
+
 		if (inet_aton(params->ips_array[i], &addr) < 0)
 			return -1;
 
