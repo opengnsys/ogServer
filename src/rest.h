@@ -48,7 +48,6 @@ struct og_client {
 	char			buf[OG_MSG_REQUEST_MAXLEN];
 	unsigned int		buf_len;
 	unsigned int		msg_len;
-	int			keepalive_idx;
 	bool			rest;
 	bool			agent;
 	int			content_length;

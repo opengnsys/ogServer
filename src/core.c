@@ -33,12 +33,6 @@ static void og_client_release(struct ev_loop *loop, struct og_client *cli)
 	free(cli);
 }
 
-static void og_client_reset_state(struct og_client *cli)
-{
-	cli->state = OG_CLIENT_RECEIVING_HEADER;
-	cli->buf_len = 0;
-}
-
 static int og_client_payload_too_large(struct og_client *cli)
 {
 	char buf[] = "HTTP/1.1 413 Payload Too Large\r\n"
@@ -111,9 +105,6 @@ static void og_client_read_cb(struct ev_loop *loop, struct ev_io *io, int events
 	if (ret <= 0)
 		goto close;
 
-	if (cli->keepalive_idx >= 0)
-		return;
-
 	ev_timer_again(loop, &cli->timer);
 
 	cli->buf_len += ret;
@@ -148,15 +139,7 @@ static void og_client_read_cb(struct ev_loop *loop, struct ev_io *io, int events
 			       inet_ntoa(cli->addr.sin_addr),
 			       ntohs(cli->addr.sin_port));
 		}
-		if (ret < 0)
-			goto close;
-
-		if (cli->keepalive_idx < 0) {
-			goto close;
-		} else {
-			og_client_reset_state(cli);
-		}
-		break;
+		goto close;
 	default:
 		syslog(LOG_ERR, "unknown state, critical internal error\n");
 		goto close;
@@ -281,7 +264,7 @@ static void og_client_timer_cb(struct ev_loop *loop, ev_timer *timer, int events
 	struct og_client *cli;
 
 	cli = container_of(timer, struct og_client, timer);
-	if (cli->keepalive_idx >= 0) {
+	if (cli->agent) {
 		ev_timer_again(loop, &cli->timer);
 		return;
 	}
@@ -355,10 +338,6 @@ void og_server_accept_cb(struct ev_loop *loop, struct ev_io *io, int events)
 		return;
 	}
 	memcpy(&cli->addr, &client_addr, sizeof(client_addr));
-	if (io->fd == socket_agent_rest)
-		cli->keepalive_idx = 0;
-	else
-		cli->keepalive_idx = -1;
 
 	if (io->fd == socket_rest)
 		cli->rest = true;
