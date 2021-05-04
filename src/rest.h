@@ -55,6 +55,7 @@ struct og_client {
 	enum og_cmd_type	last_cmd;
 	unsigned int		last_cmd_id;
 	bool			autorun;
+	uint32_t		speed;
 };
 
 void og_client_add(struct og_client *cli);

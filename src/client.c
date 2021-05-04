@@ -28,6 +28,7 @@ static int og_resp_probe(struct og_client *cli, json_t *data)
 {
 	const char *status = NULL;
 	const char *key;
+	uint32_t speed;
 	json_t *value;
 	int err = 0;
 
@@ -39,6 +40,11 @@ static int og_resp_probe(struct og_client *cli, json_t *data)
 			err = og_json_parse_string(value, &status);
 			if (err < 0)
 				return err;
+		} else if (!strcmp(key, "speed")) {
+			err = og_json_parse_uint(value, &speed);
+			if (err < 0)
+				return err;
+			cli->speed = speed;
 		} else {
 			return -1;
 		}

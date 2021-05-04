@@ -389,6 +389,7 @@ static int og_json_client_append(json_t *array, struct og_client *client)
 		return -1;
 	}
 	json_object_set_new(object, "state", state);
+	json_object_set_new(object, "speed", json_integer(client->speed));
 	json_array_append_new(array, object);
 
 	return 0;
