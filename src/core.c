@@ -339,15 +339,12 @@ void og_server_accept_cb(struct ev_loop *loop, struct ev_io *io, int events)
 	}
 	memcpy(&cli->addr, &client_addr, sizeof(client_addr));
 
-	if (io->fd == socket_rest)
-		cli->rest = true;
-	else if (io->fd == socket_agent_rest)
+	if (io->fd == socket_agent_rest) {
 		cli->agent = true;
-
-	if (io->fd == socket_agent_rest)
 		ev_io_init(&cli->io, og_agent_read_cb, client_sd, EV_READ);
-	else
+	} else {
 		ev_io_init(&cli->io, og_client_read_cb, client_sd, EV_READ);
+	}
 
 	ev_io_start(loop, &cli->io);
 	if (io->fd == socket_agent_rest) {
