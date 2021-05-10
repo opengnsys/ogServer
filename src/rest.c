@@ -4004,6 +4004,52 @@ static int og_cmd_post_center_add(json_t *element,
 	return 0;
 }
 
+static int og_cmd_post_center_delete(json_t *element,
+				     struct og_msg_params *params)
+{
+	const char *key, *msglog;
+	struct og_dbi *dbi;
+	dbi_result result;
+	json_t *value;
+	int err = 0;
+
+	json_object_foreach(element, key, value) {
+		if (!strcmp(key, "id")) {
+			err = og_json_parse_string(value, &params->id);
+			params->flags |= OG_REST_PARAM_ID;
+		}
+		if (err < 0)
+			return err;
+	}
+
+	if (!og_msg_params_validate(params, OG_REST_PARAM_ID))
+		return -1;
+
+	dbi = og_dbi_open(&ogconfig.db);
+	if (!dbi) {
+		syslog(LOG_ERR, "cannot open conection database (%s:%d)\n",
+		       __func__, __LINE__);
+		return -1;
+	}
+
+	result = dbi_conn_queryf(dbi->conn,
+				 "DELETE FROM centros WHERE idcentro=%s",
+				 params->id);
+
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		og_dbi_close(dbi);
+		return -1;
+	}
+
+	dbi_result_free(result);
+
+	og_dbi_close(dbi);
+	return 0;
+}
+
 static int og_cmd_post_room_add(json_t *element,
 				struct og_msg_params *params)
 {
@@ -4602,6 +4648,19 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 		}
 
 		err = og_cmd_post_center_add(root, &params, buf_reply);
+	} else if (!strncmp(cmd, "center/delete", strlen("center/delete"))) {
+		if (method != OG_METHOD_POST) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
+
+		if (!root) {
+			syslog(LOG_ERR,
+			       "command center delete with no payload\n");
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
+		}
+		err = og_cmd_post_center_delete(root, &params);
 	} else if (!strncmp(cmd, "room/add",
 			    strlen("room/add"))) {
 		if (method != OG_METHOD_POST) {
