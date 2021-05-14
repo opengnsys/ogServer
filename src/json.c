@@ -120,6 +120,9 @@ int og_json_parse_partition(json_t *element, struct og_partition *part,
 		} else if (!strcmp(key, "disk")) {
 			err = og_json_parse_string(value, &part->disk);
 			flags |= OG_PARAM_PART_DISK;
+		} else if (!strcmp(key, "disk_type")) {
+			err = og_json_parse_string(value, &part->disk_type);
+			flags |= OG_PARAM_PART_DISK_TYPE;
 		} else if (!strcmp(key, "os")) {
 			err = og_json_parse_string(value, &part->os);
 			flags |= OG_PARAM_PART_OS;

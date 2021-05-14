@@ -18,9 +18,11 @@ int og_json_parse_bool(json_t *element, bool *value);
 #define OG_PARAM_PART_DISK			(1UL << 5)
 #define OG_PARAM_PART_OS			(1UL << 6)
 #define OG_PARAM_PART_USED_SIZE			(1UL << 7)
+#define OG_PARAM_PART_DISK_TYPE			(1UL << 8)
 
 struct og_partition {
 	const char	*disk;
+	const char	*disk_type;
 	const char	*number;
 	const char	*code;
 	const char	*size;

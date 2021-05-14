@@ -178,12 +178,50 @@ err_no_trans:
 	return -1;
 }
 
+static int og_dbi_schema_v3(struct og_dbi *dbi)
+{
+	const char *msglog, *command;
+	dbi_result result, result_alter;
+
+	result = dbi_conn_query(dbi->conn,
+				"ALTER TABLE ordenadores_particiones "
+				"ADD disk_type VARCHAR(32) DEFAULT NULL "
+				"AFTER numdisk;");
+
+	while (dbi_result_next_row(result)) {
+		command = dbi_result_get_string(result, "cmd");
+
+		syslog(LOG_DEBUG, "Adding disk type: %s\n", command);
+		result_alter = dbi_conn_query(dbi->conn, command);
+		if (!result_alter) {
+			dbi_conn_error(dbi->conn, &msglog);
+			syslog(LOG_INFO, "Error when adding disk type (%s:%d) %s\n",
+			       __func__, __LINE__, msglog);
+			return -1;
+		}
+		dbi_result_free(result_alter);
+	}
+	dbi_result_free(result);
+
+	result = dbi_conn_query(dbi->conn, "UPDATE version SET version = 3");
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_INFO, "Could not update version row (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		return -1;
+	}
+	dbi_result_free(result);
+
+	return 0;
+}
+
 static struct og_schema_version {
 	int	version;
 	int	(*update)(struct og_dbi *dbi);
 } schema_version[] = {
 	{	.version = 1,	.update = og_dbi_schema_v1	},
 	{	.version = 2,	.update = og_dbi_schema_v2	},
+	{	.version = 3,	.update = og_dbi_schema_v3	},
 	{	0,		NULL				},
 };
 

@@ -321,11 +321,11 @@ static int og_resp_refresh(json_t *data, struct og_client *cli)
 			continue;
 
 		snprintf(cfg + strlen(cfg), sizeof(cfg) - strlen(cfg),
-			 "disk=%s\tpar=%s\tcpt=%s\tfsi=%s\tsoi=%s\ttam=%s\tuso=%s\n",
+			 "disk=%s\tpar=%s\tcpt=%s\tfsi=%s\tsoi=%s\ttam=%s\tuso=%s\tdtype=%s\n",
 			 disks[i].disk, disks[i].number,
 			 disks[i].code, disks[i].filesystem,
 			 disks[i].os, disks[i].size,
-			 disks[i].used_size);
+			 disks[i].used_size, disks[i].disk_type);
 	}
 
 	for (i = 0; i < OG_PARTITION_MAX; i++) {

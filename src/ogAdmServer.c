@@ -47,8 +47,8 @@
 bool actualizaConfiguracion(struct og_dbi *dbi, char *cfg, int ido)
 {
 	int lon, p, c,i, dato, swu, idsoi, idsfi,k;
-	char *ptrPar[MAXPAR], *ptrCfg[7], *ptrDual[2], tbPar[LONSTD];
-	char *ser, *disk, *par, *cpt, *sfi, *soi, *tam, *uso; // Parametros de configuración.
+	char *ptrPar[MAXPAR], *ptrCfg[8], *ptrDual[2], tbPar[LONSTD];
+	char *ser, *disk, *disk_type, *par, *cpt, *sfi, *soi, *tam, *uso; // Parametros de configuración.
 	dbi_result result, result_update;
 	const char *msglog;
 
@@ -79,7 +79,7 @@ bool actualizaConfiguracion(struct og_dbi *dbi, char *cfg, int ido)
 		}
 
 		// Distribución de particionado.
-		disk = par = cpt = sfi = soi = tam = uso = NULL;
+		disk = disk_type = par = cpt = sfi = soi = tam = uso = NULL;
 
 		splitCadena(ptrDual, ptrCfg[0], '=');
 		disk = ptrDual[1]; // Número de disco
@@ -118,6 +118,12 @@ bool actualizaConfiguracion(struct og_dbi *dbi, char *cfg, int ido)
 		splitCadena(ptrDual, ptrCfg[6], '=');
 		uso = ptrDual[1]; // Porcentaje de uso del S.F.
 
+		k = splitCadena(ptrDual, ptrCfg[7], '=');
+		if (k == 2)
+			disk_type = ptrDual[1];
+		else
+			disk_type = NULL;
+
 		lon += sprintf(tbPar + lon, "(%s, %s),", disk, par);
 
 		result = dbi_conn_queryf(dbi->conn,
@@ -133,9 +139,9 @@ bool actualizaConfiguracion(struct og_dbi *dbi, char *cfg, int ido)
 		}
 		if (!dbi_result_next_row(result)) {
 			result_update = dbi_conn_queryf(dbi->conn,
-					"INSERT INTO ordenadores_particiones(idordenador,numdisk,numpar,codpar,tamano,uso,idsistemafichero,idnombreso,idimagen)"
-					" VALUES(%d,%s,%s,0x%s,%s,%s,%d,%d,0)",
-					ido, disk, par, cpt, tam, uso, idsfi, idsoi);
+					"INSERT INTO ordenadores_particiones(idordenador,numdisk,disk_type,numpar,codpar,tamano,uso,idsistemafichero,idnombreso,idimagen)"
+					" VALUES(%d,%s,'%s',%s,0x%s,%s,%s,%d,%d,0)",
+					ido, disk, disk_type, par, cpt, tam, uso, idsfi, idsoi);
 			if (!result_update) {
 				dbi_conn_error(dbi->conn, &msglog);
 				syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
