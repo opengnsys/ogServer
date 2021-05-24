@@ -132,7 +132,7 @@ int og_json_parse_partition(json_t *element, struct og_partition *part,
 			return err;
 	}
 
-	if (flags != required_flags)
+	if ((flags & required_flags) != required_flags)
 		return -1;
 
 	return err;
