@@ -180,26 +180,19 @@ err_no_trans:
 
 static int og_dbi_schema_v3(struct og_dbi *dbi)
 {
-	const char *msglog, *command;
-	dbi_result result, result_alter;
+	const char *msglog;
+	dbi_result result;
 
+	syslog(LOG_DEBUG, "Adding disk type to ordenadores_particiones\n");
 	result = dbi_conn_query(dbi->conn,
 				"ALTER TABLE ordenadores_particiones "
 				"ADD disk_type VARCHAR(32) DEFAULT NULL "
 				"AFTER numdisk;");
-
-	while (dbi_result_next_row(result)) {
-		command = dbi_result_get_string(result, "cmd");
-
-		syslog(LOG_DEBUG, "Adding disk type: %s\n", command);
-		result_alter = dbi_conn_query(dbi->conn, command);
-		if (!result_alter) {
-			dbi_conn_error(dbi->conn, &msglog);
-			syslog(LOG_INFO, "Error when adding disk type (%s:%d) %s\n",
-			       __func__, __LINE__, msglog);
-			return -1;
-		}
-		dbi_result_free(result_alter);
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_INFO, "Error when adding disk type (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		return -1;
 	}
 	dbi_result_free(result);
 
