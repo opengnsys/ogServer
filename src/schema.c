@@ -47,8 +47,6 @@ static const char *stmts_v2[OG_SCHEMA_STMTS_V2] = {
 	[6]	=	"UPDATE version SET version = 2",
 };
 
-struct og_server_cfg ogconfig;
-
 static int og_dbi_create_version(struct og_dbi *dbi)
 {
 	const char *msglog;
