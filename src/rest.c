@@ -4050,6 +4050,83 @@ static int og_cmd_post_center_delete(json_t *element,
 	return 0;
 }
 
+static int og_cmd_post_procedure_add(json_t *element,
+				     struct og_msg_params *params)
+{
+	const char *key, *msglog;
+	struct og_dbi *dbi;
+	dbi_result result;
+	json_t *value;
+	int err = 0;
+
+	json_object_foreach(element, key, value) {
+		if (!strcmp(key, "center")) {
+			err = og_json_parse_string(value, &params->id);
+			params->flags |= OG_REST_PARAM_ID;
+		} else if (!strcmp(key, "name")) {
+			err = og_json_parse_string(value, &params->name);
+			params->flags |= OG_REST_PARAM_NAME;
+		} else if (!strcmp(key, "description"))
+			err = og_json_parse_string(value, &params->comment);
+
+		if (err < 0)
+			return err;
+	}
+
+	if (!og_msg_params_validate(params, OG_REST_PARAM_ID |
+					    OG_REST_PARAM_NAME))
+		return -1;
+
+	dbi = og_dbi_open(&ogconfig.db);
+	if (!dbi) {
+		syslog(LOG_ERR, "cannot open conection database (%s:%d)\n",
+		       __func__, __LINE__);
+		return -1;
+	}
+
+	result = dbi_conn_queryf(dbi->conn,
+				 "SELECT descripcion FROM procedimientos "
+				 "WHERE descripcion='%s' AND idcentro=%s",
+				 params->name, params->id);
+
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		og_dbi_close(dbi);
+		return -1;
+	}
+
+	if (dbi_result_get_numrows(result) > 0) {
+		syslog(LOG_ERR, "Procedure with name %s already exists in the "
+				"center with id %s\n",
+		       params->name, params->id);
+		dbi_result_free(result);
+		og_dbi_close(dbi);
+		return -1;
+	}
+	dbi_result_free(result);
+
+	result = dbi_conn_queryf(dbi->conn,
+				 "INSERT INTO procedimientos("
+				 "idcentro, descripcion, comentarios) "
+				 "VALUES (%s, '%s', '%s')",
+				 params->id, params->name, params->comment);
+
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR,
+		       "failed to add procedure to database (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		og_dbi_close(dbi);
+		return -1;
+	}
+
+	dbi_result_free(result);
+	og_dbi_close(dbi);
+	return 0;
+}
+
 static int og_cmd_post_room_add(json_t *element,
 				struct og_msg_params *params)
 {
@@ -4733,6 +4810,19 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 			goto err_process_rest_payload;
 		}
 		err = og_cmd_post_room_delete(root, &params);
+	} else if (!strncmp(cmd, "procedure/add", strlen("procedure/add"))) {
+		if (method != OG_METHOD_POST) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
+
+		if (!root) {
+			syslog(LOG_ERR,
+			       "command procedure add with no payload\n");
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
+		}
+		err = og_cmd_post_procedure_add(root, &params);
 	} else {
 		syslog(LOG_ERR, "unknown command: %.32s ...\n", cmd);
 		err = og_client_not_found(cli);
