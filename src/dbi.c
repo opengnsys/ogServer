@@ -39,6 +39,7 @@ struct og_dbi *og_dbi_open(struct og_dbi_config *config)
 	dbi_conn_set_option(dbi->conn, "encoding", "UTF-8");
 
 	if (dbi_conn_connect(dbi->conn) < 0) {
+		dbi_shutdown_r(dbi->inst);
 		free(dbi);
 		return NULL;
 	}
