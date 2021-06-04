@@ -140,3 +140,75 @@ int og_json_parse_partition(json_t *element, struct og_partition *part,
 
 	return err;
 }
+
+static int og_json_parse_procedure_cmd(json_t *element, int position,
+				       struct og_procedure *proc)
+{
+	struct og_procedure_step *step;
+	uint32_t err = 0;
+	const char *key;
+	json_t *value;
+
+	step = &proc->steps[proc->num_steps++];
+	step->type = OG_STEP_COMMAND;
+	step->position = position;
+
+	json_object_foreach(element, key, value) {
+		if (!strcmp(key, "command"))
+			err = og_json_parse_string(value, &step->cmd.type);
+		else if (!strcmp(key, "params"))
+			step->cmd.json = value;
+		else
+			return -1;
+	}
+
+	return err;
+}
+
+static int og_json_parse_procedure_call(json_t *element, int position,
+					struct og_procedure *proc)
+{
+	struct og_procedure_step *step;
+	uint32_t err = 0;
+	const char *key;
+	json_t *value;
+
+	step = &proc->steps[proc->num_steps++];
+	step->type = OG_STEP_PROCEDURE;
+	step->position = position;
+
+	json_object_foreach(element, key, value) {
+		if (!strcmp(key, "procedure"))
+			err = og_json_parse_uint64(value, &step->procedure.id);
+		else
+			return -1;
+	}
+
+	return err;
+}
+
+int og_json_parse_procedure(json_t *element, struct og_procedure *proc)
+{
+	unsigned int i;
+	json_t *item;
+	int err = 0;
+
+	if (json_typeof(element) != JSON_ARRAY)
+		return -1;
+
+	for (i = 0; i < json_array_size(element) && i < OG_PROCEDURE_STEPS_MAX; ++i) {
+		item = json_array_get(element, i);
+
+		if (json_object_get(item, "command"))
+			err = og_json_parse_procedure_cmd(item, i, proc);
+		else if (json_object_get(item, "procedure"))
+			err = og_json_parse_procedure_call(item, i, proc);
+		else
+			err = -1;
+
+		if (err)
+			break;
+	}
+
+	return err;
+}

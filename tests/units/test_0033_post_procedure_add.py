@@ -8,7 +8,10 @@ class TestPostProcedureAddMethods(unittest.TestCase):
         self.headers = {'Authorization' : '07b3bfe728954619b58f0107ad73acc1'}
         self.full_json = { "center": "1",
                            "name": "procedure1",
-                           "description": "procedure test" }
+                           "description": "procedure test",
+                           "steps": [ { "command": "wol",
+                                        "params": { "type": "broadcast" } },
+                                      { "procedure": 22 } ] }
         self.minimal_json = { "center": "1",
                               "name": "procedure2" }
         self.duplicated_procedure_json = { "center": "1",

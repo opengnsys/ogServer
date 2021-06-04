@@ -4076,9 +4076,72 @@ static int og_cmd_post_center_delete(json_t *element,
 	return 0;
 }
 
+int og_procedure_add_steps(struct og_dbi *dbi, struct og_procedure *proc)
+{
+	struct og_procedure_step *step;
+	uint64_t procedure = 0;
+	const char *legacy_params;
+	const char *msglog;
+	dbi_result result;
+	int i;
+
+	for (i = 0; i < proc->num_steps; i++) {
+		step = &proc->steps[i];
+		switch (step->type) {
+		case OG_STEP_COMMAND:
+			legacy_params = og_msg_params_to_legacy(&step->cmd);
+			if (!legacy_params) {
+				og_dbi_close(dbi);
+				return -1;
+			}
+			result = dbi_conn_queryf(dbi->conn,
+						 "INSERT INTO procedimientos_acciones "
+						 "(idprocedimiento, orden, parametros) "
+						 "VALUES (%d, %d, '%s')",
+						 procedure,
+						 step->position,
+						 legacy_params);
+			if (!result) {
+				dbi_conn_error(dbi->conn, &msglog);
+				syslog(LOG_ERR,
+				       "failed to add procedure command to database (%s:%d) %s\n",
+				       __func__, __LINE__, msglog);
+				og_dbi_close(dbi);
+				free((char *)legacy_params);
+				return -1;
+			}
+
+			dbi_result_free(result);
+			free((char *)legacy_params);
+			break;
+		case OG_STEP_PROCEDURE:
+			result = dbi_conn_queryf(dbi->conn,
+						 "INSERT INTO procedimientos_acciones "
+						 "(idprocedimiento, orden, procedimientoid) "
+						 "VALUES (%d, %d, %d)",
+						 procedure,
+						 step->position,
+						 step->procedure.id);
+			if (!result) {
+				dbi_conn_error(dbi->conn, &msglog);
+				syslog(LOG_ERR,
+				       "failed to add procedure child to database (%s:%d) %s\n",
+				       __func__, __LINE__, msglog);
+				og_dbi_close(dbi);
+				return -1;
+			}
+			dbi_result_free(result);
+			break;
+		}
+	}
+
+	return 0;
+}
+
 static int og_cmd_post_procedure_add(json_t *element,
 				     struct og_msg_params *params)
 {
+	struct og_procedure proc = {};
 	const char *key, *msglog;
 	struct og_dbi *dbi;
 	dbi_result result;
@@ -4092,8 +4155,11 @@ static int og_cmd_post_procedure_add(json_t *element,
 		} else if (!strcmp(key, "name")) {
 			err = og_json_parse_string(value, &params->name);
 			params->flags |= OG_REST_PARAM_NAME;
-		} else if (!strcmp(key, "description"))
+		} else if (!strcmp(key, "description")) {
 			err = og_json_parse_string(value, &params->comment);
+		} else if (!strcmp(key, "steps")) {
+			err = og_json_parse_procedure(value, &proc);
+		}
 
 		if (err < 0)
 			return err;
@@ -4147,10 +4213,14 @@ static int og_cmd_post_procedure_add(json_t *element,
 		og_dbi_close(dbi);
 		return -1;
 	}
-
 	dbi_result_free(result);
+
+	proc.id = dbi_conn_sequence_last(dbi->conn, NULL);
+	err = og_procedure_add_steps(dbi, &proc);
+
 	og_dbi_close(dbi);
-	return 0;
+
+	return err;
 }
 
 static int og_cmd_post_room_add(json_t *element,

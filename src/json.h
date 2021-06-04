@@ -98,4 +98,31 @@ struct og_cmd_json {
 	uint32_t	flags;
 };
 
+enum og_procedure_step_type {
+	OG_STEP_COMMAND		= 0,
+	OG_STEP_PROCEDURE,
+};
+
+#define OG_PROCEDURE_STEPS_MAX	256
+
+struct og_procedure_step {
+	enum og_procedure_step_type	type;
+	uint32_t			position;
+
+	union {
+		struct og_cmd_json	cmd;
+		struct {
+			uint64_t	id;
+		} procedure;
+	};
+};
+
+struct og_procedure {
+	uint64_t			id;
+	struct og_procedure_step	steps[OG_PROCEDURE_STEPS_MAX];
+	uint32_t			num_steps;
+};
+
+int og_json_parse_procedure(json_t *element, struct og_procedure *proc);
+
 #endif
