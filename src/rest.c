@@ -15,6 +15,7 @@
 #include "wol.h"
 #include "cfg.h"
 #include "schedule.h"
+#include "legacy.h"
 #include <ev.h>
 #include <syslog.h>
 #include <sys/ioctl.h>
@@ -162,8 +163,7 @@ static int og_json_parse_clients(json_t *element, struct og_msg_params *params)
 	return 0;
 }
 
-static int og_json_parse_partition_setup(json_t *element,
-					 struct og_msg_params *params)
+int og_json_parse_partition_setup(json_t *element, struct og_msg_params *params)
 {
 	unsigned int i;
 	json_t *k;
@@ -2041,12 +2041,11 @@ static int og_cmd_images(char *buffer_reply)
 	return 0;
 }
 
-static int og_cmd_create_image(json_t *element, struct og_msg_params *params)
+int og_json_parse_create_image(json_t *element,
+			       struct og_msg_params *params)
 {
-	char new_image_id[OG_DB_INT_MAXLEN + 1];
 	struct og_image image = {};
-	json_t *value, *clients;
-	struct og_dbi *dbi;
+	json_t *value;
 	const char *key;
 	int err = 0;
 
@@ -2088,6 +2087,21 @@ static int og_cmd_create_image(json_t *element, struct og_msg_params *params)
 			return err;
 	}
 
+	return 0;
+}
+
+static int og_cmd_create_image(json_t *element, struct og_msg_params *params)
+{
+	char new_image_id[OG_DB_INT_MAXLEN + 1];
+	struct og_image image = {};
+	struct og_dbi *dbi;
+	json_t *clients;
+	int err = 0;
+
+	err = og_json_parse_create_image(element, params);
+	if (err < 0)
+		return err;
+
 	if (!og_msg_params_validate(params, OG_REST_PARAM_ADDR |
 					    OG_REST_PARAM_DISK |
 					    OG_REST_PARAM_PARTITION |
@@ -2126,10 +2140,10 @@ static int og_cmd_create_image(json_t *element, struct og_msg_params *params)
 			       clients);
 }
 
-static int og_cmd_restore_image(json_t *element, struct og_msg_params *params)
+int og_json_parse_restore_image(json_t *element, struct og_msg_params *params)
 {
-	json_t *clients, *value;
 	const char *key;
+	json_t *value;
 	int err = 0;
 
 	if (json_typeof(element) != JSON_OBJECT)
@@ -2164,6 +2178,18 @@ static int og_cmd_restore_image(json_t *element, struct og_msg_params *params)
 		if (err < 0)
 			return err;
 	}
+
+	return 0;
+}
+
+static int og_cmd_restore_image(json_t *element, struct og_msg_params *params)
+{
+	json_t *clients;
+	int err = 0;
+
+	err = og_json_parse_restore_image(element, params);
+	if (err < 0)
+		return err;
 
 	if (!og_msg_params_validate(params, OG_REST_PARAM_ADDR |
 					    OG_REST_PARAM_DISK |
@@ -2953,7 +2979,7 @@ static int og_dbi_queue_command(struct og_dbi *dbi, uint32_t task_id,
 	result = dbi_conn_queryf(dbi->conn,
 			"SELECT idaccion, idcentro, idordenador, parametros "
 			"FROM acciones "
-			"WHERE sesion = %u", task_id);
+			"WHERE idaccion = %u", task_id);
 	if (!result) {
 		dbi_conn_error(dbi->conn, &msglog);
 		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
@@ -4282,6 +4308,168 @@ static int og_cmd_post_room_delete(json_t *element,
 	return 0;
 }
 
+enum {
+	OG_SCHEDULE_CMD_TYPE	= 0,
+	OG_SCHEDULE_CMD_PARAMS,
+};
+
+static bool og_cmd_validate(const struct og_cmd_json *cmd,
+			    const uint64_t flags)
+{
+	return (cmd->flags & flags) == flags;
+}
+
+
+static int og_cmd_post_schedule_command(json_t *element,
+					struct og_msg_params *params)
+{
+	char *centerid_query  = "SELECT o.idordenador, c.idcentro "
+				"FROM `ordenadores` AS o "
+				"INNER JOIN aulas AS a ON o.idaula = a.idaula "
+				"INNER JOIN centros AS c ON a.idcentro = c.idcentro "
+				"WHERE o.ip = '%s';";
+	int center_id, client_id, len;
+	struct og_cmd_json cmd = {};
+	const char *legacy_params;
+	const char *key, *msglog;
+	struct og_dbi *dbi;
+	char task_id[128];
+	uint32_t sequence;
+	bool when = false;
+	dbi_result result;
+	json_t *value;
+	int err = 0, i;
+
+	json_object_foreach(element, key, value) {
+		if (!strcmp(key, "clients")) {
+			err = og_json_parse_clients(value, params);
+		} else if (!strcmp(key, "command")) {
+			err = og_json_parse_string(value, &cmd.type);
+			cmd.flags |= OG_SCHEDULE_CMD_TYPE;
+		} else if (!strcmp(key, "params")) {
+			cmd.json = value;
+			cmd.flags |= OG_SCHEDULE_CMD_PARAMS;
+		} else if (!strcmp(key, "when")) {
+			err = og_json_parse_time_params(value, params);
+			when = true;
+		}
+
+		if (err < 0)
+			return err;
+	}
+
+	if (!og_cmd_validate(&cmd, OG_SCHEDULE_CMD_TYPE |
+				   OG_SCHEDULE_CMD_PARAMS))
+		return -1;
+
+	if (!when) {
+		params->time.check_stale = false;
+		og_schedule_time_now(&params->time);
+		params->flags |= OG_REST_PARAM_TIME_YEARS |
+				 OG_REST_PARAM_TIME_MONTHS |
+				 OG_REST_PARAM_TIME_WEEKS |
+				 OG_REST_PARAM_TIME_WEEK_DAYS |
+				 OG_REST_PARAM_TIME_DAYS |
+				 OG_REST_PARAM_TIME_HOURS |
+				 OG_REST_PARAM_TIME_AM_PM |
+				 OG_REST_PARAM_TIME_MINUTES;
+	} else {
+		params->time.check_stale = true;
+	}
+
+	if (!og_msg_params_validate(params, OG_REST_PARAM_ADDR |
+					    OG_REST_PARAM_TIME_YEARS |
+					    OG_REST_PARAM_TIME_MONTHS |
+					    OG_REST_PARAM_TIME_WEEKS |
+					    OG_REST_PARAM_TIME_WEEK_DAYS |
+					    OG_REST_PARAM_TIME_DAYS |
+					    OG_REST_PARAM_TIME_HOURS |
+					    OG_REST_PARAM_TIME_MINUTES |
+					    OG_REST_PARAM_TIME_AM_PM))
+		return -1;
+
+	params->type = "command";
+	dbi = og_dbi_open(&ogconfig.db);
+	if (!dbi) {
+		syslog(LOG_ERR, "cannot open conection database (%s:%d)\n",
+		       __func__, __LINE__);
+		goto err_dbi_open;
+	}
+
+	legacy_params = og_msg_params_to_legacy(&cmd);
+	if (!legacy_params)
+		goto err_legacy_params;
+
+	/* ips_array -> ids */
+	for (i = 0; i < params->ips_array_len; i++) {
+
+		result = dbi_conn_queryf(dbi->conn, centerid_query, params->ips_array[i]);
+		if (!result) {
+			dbi_conn_error(dbi->conn, &msglog);
+			syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
+			       __func__, __LINE__, msglog);
+			goto err_dbi_result;
+		}
+		if (dbi_result_get_numrows(result) != 1) {
+			dbi_conn_error(dbi->conn, &msglog);
+			syslog(LOG_ERR, "client not found (%s:%d) %s\n",
+			       __func__, __LINE__, msglog);
+			goto err_dbi;
+		}
+
+		if (!dbi_result_next_row(result)) {
+			dbi_conn_error(dbi->conn, &msglog);
+			syslog(LOG_ERR, "failed to get idcentro (%s:%d) %s\n",
+			       __func__, __LINE__, msglog);
+			goto err_dbi;
+		}
+		center_id = dbi_result_get_uint(result, "idcentro");
+		if (!center_id) {
+			dbi_conn_error(dbi->conn, &msglog);
+			syslog(LOG_ERR, "failed to get idcentro (%s:%d) %s\n",
+			       __func__, __LINE__, msglog);
+			goto err_dbi;
+		}
+		client_id = dbi_result_get_uint(result, "idordenador");
+		dbi_result_free(result);
+
+		result = dbi_conn_queryf(dbi->conn, "INSERT INTO acciones (idordenador, "
+						    "idcentro, parametros)"
+						    "VALUES (%d, %d, '%s')",
+					 client_id, center_id, legacy_params);
+		if (!result) {
+			dbi_conn_error(dbi->conn, &msglog);
+			syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
+			       __func__, __LINE__, msglog);
+			goto err_dbi_result;
+		}
+		dbi_result_free(result);
+
+		sequence = dbi_conn_sequence_last(dbi->conn, NULL);
+		len = snprintf(task_id, sizeof(sequence), "%d", sequence);
+		if (len >= (int)sizeof(task_id)) {
+			syslog(LOG_ERR, "truncated snprintf (%s:%d)\n",
+			       __func__, __LINE__);
+			goto err_dbi;
+		}
+		params->task_id = task_id;
+		og_task_schedule_create(params);
+	}
+
+	free((char *)legacy_params);
+	og_dbi_close(dbi);
+	return 0;
+
+err_dbi:
+	dbi_result_free(result);
+err_dbi_result:
+	free((char *)legacy_params);
+err_legacy_params:
+	og_dbi_close(dbi);
+err_dbi_open:
+	return -1;
+}
+
 static int og_client_method_not_found(struct og_client *cli)
 {
 	/* To meet RFC 7231, this function MUST generate an Allow header field
@@ -4823,6 +5011,19 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 			goto err_process_rest_payload;
 		}
 		err = og_cmd_post_procedure_add(root, &params);
+	} else if (!strncmp(cmd, "schedule/command", strlen("schedule/command"))) {
+		if (method != OG_METHOD_POST) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
+
+		if (!root) {
+			syslog(LOG_ERR,
+			       "command schedule action with no payload\n");
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
+		}
+		err = og_cmd_post_schedule_command(root, &params);
 	} else {
 		syslog(LOG_ERR, "unknown command: %.32s ...\n", cmd);
 		err = og_client_not_found(cli);

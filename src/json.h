@@ -92,4 +92,10 @@ struct og_msg_params {
 	uint64_t	flags;
 };
 
+struct og_cmd_json {
+	const char	*type;
+	json_t		*json;
+	uint32_t	flags;
+};
+
 #endif
