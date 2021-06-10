@@ -92,6 +92,10 @@ struct og_msg_params {
 	uint64_t	flags;
 };
 
+int og_json_parse_partition_setup(json_t *element, struct og_msg_params *params);
+int og_json_parse_create_image(json_t *element, struct og_msg_params *params);
+int og_json_parse_restore_image(json_t *element, struct og_msg_params *params);
+
 struct og_cmd_json {
 	const char	*type;
 	json_t		*json;

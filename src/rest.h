@@ -94,8 +94,4 @@ struct og_cmd {
 const struct og_cmd *og_cmd_find(const char *client_ip);
 void og_cmd_free(const struct og_cmd *cmd);
 
-int og_json_parse_partition_setup(json_t *element, struct og_msg_params *params);
-int og_json_parse_create_image(json_t *element, struct og_msg_params *params);
-int og_json_parse_restore_image(json_t *element, struct og_msg_params *params);
-
 #endif
