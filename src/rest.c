@@ -2979,7 +2979,7 @@ static int og_dbi_queue_command(struct og_dbi *dbi, uint32_t task_id,
 	result = dbi_conn_queryf(dbi->conn,
 			"SELECT idaccion, idcentro, idordenador, parametros "
 			"FROM acciones "
-			"WHERE idaccion = %u", task_id);
+			"WHERE sesion = %u", task_id);
 	if (!result) {
 		dbi_conn_error(dbi->conn, &msglog);
 		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
