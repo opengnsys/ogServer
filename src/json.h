@@ -4,11 +4,11 @@
 #include <jansson.h>
 #include "schedule.h"
 
-int og_json_parse_string(json_t *element, const char **str);
-int og_json_parse_string_copy(json_t *element, char *str, size_t size);
-int og_json_parse_uint64(json_t *element, uint64_t *integer);
-int og_json_parse_uint(json_t *element, uint32_t *integer);
-int og_json_parse_bool(json_t *element, bool *value);
+int og_json_parse_string(const json_t *element, const char **str);
+int og_json_parse_string_copy(const json_t *element, char *str, size_t size);
+int og_json_parse_uint64(const json_t *element, uint64_t *integer);
+int og_json_parse_uint(const json_t *element, uint32_t *integer);
+int og_json_parse_bool(const json_t *element, bool *value);
 
 #define OG_PARAM_PART_NUMBER			(1UL << 0)
 #define OG_PARAM_PART_CODE			(1UL << 1)
