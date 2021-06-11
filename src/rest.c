@@ -4223,6 +4223,55 @@ static int og_cmd_post_procedure_add(json_t *element,
 	return err;
 }
 
+static int og_cmd_post_procedure_delete(json_t *element,
+					struct og_msg_params *params)
+{
+	const char *key, *msglog;
+	struct og_dbi *dbi;
+	dbi_result result;
+	json_t *value;
+	int err = 0;
+
+	json_object_foreach(element, key, value) {
+		if (!strcmp(key, "id")) {
+			err = og_json_parse_string(value, &params->id);
+			params->flags |= OG_REST_PARAM_ID;
+		}
+		if (err < 0)
+			return err;
+	}
+
+	if (!og_msg_params_validate(params, OG_REST_PARAM_ID))
+		return -1;
+
+	dbi = og_dbi_open(&ogconfig.db);
+	if (!dbi) {
+		syslog(LOG_ERR, "cannot open conection database (%s:%d)\n",
+		       __func__, __LINE__);
+		return -1;
+	}
+
+	result = dbi_conn_queryf(dbi->conn,
+				 "DELETE FROM procedimientos WHERE idprocedimiento=%s",
+				 params->id);
+
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		og_dbi_close(dbi);
+		return -1;
+	} else if (dbi_result_get_numrows_affected(result) < 1) {
+		syslog(LOG_ERR, "delete did not modify any row (%s:%d)\n",
+		       __func__, __LINE__);
+	}
+
+	dbi_result_free(result);
+
+	og_dbi_close(dbi);
+	return 0;
+}
+
 static int og_cmd_post_room_add(json_t *element,
 				struct og_msg_params *params)
 {
@@ -5094,6 +5143,19 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 			goto err_process_rest_payload;
 		}
 		err = og_cmd_post_schedule_command(root, &params);
+	} else if (!strncmp(cmd, "procedure/delete", strlen("schedule/command"))) {
+		if (method != OG_METHOD_POST) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
+
+		if (!root) {
+			syslog(LOG_ERR,
+			       "command procedure delete with no payload\n");
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
+		}
+		err = og_cmd_post_procedure_delete(root, &params);
 	} else {
 		syslog(LOG_ERR, "unknown command: %.32s ...\n", cmd);
 		err = og_client_not_found(cli);
