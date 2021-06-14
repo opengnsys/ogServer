@@ -4589,6 +4589,90 @@ err_dbi_open:
 	return -1;
 }
 
+static int og_cmd_post_procedure_run(json_t *element,
+				     struct og_msg_params *params)
+{
+	const char *centerid_query  = "SELECT o.idordenador, c.idcentro "
+				      "FROM `ordenadores` AS o "
+				      "INNER JOIN aulas AS a "
+				      "ON o.idaula = a.idaula "
+				      "INNER JOIN centros AS c "
+				      "ON a.idcentro = c.idcentro "
+				      "WHERE o.ip = '%s';";
+	struct og_task task = {};
+	const char *key, *msglog;
+	struct og_dbi *dbi;
+	dbi_result result;
+	int i, err = 0;
+	json_t *value;
+
+	json_object_foreach(element, key, value) {
+		if (!strcmp(key, "clients")) {
+			err = og_json_parse_clients(value, params);
+		} else if (!strcmp(key, "procedure")) {
+			err = og_json_parse_string(value, &params->id);
+			params->flags |= OG_REST_PARAM_ID;
+		}
+
+		if (err < 0)
+			goto err_return;
+	}
+
+	if (!og_msg_params_validate(params, OG_REST_PARAM_ADDR |
+					    OG_REST_PARAM_ID ))
+		goto err_return;
+
+	task.type_scope = AMBITO_ORDENADORES;
+	task.procedure_id = atoi(params->id);
+
+	dbi = og_dbi_open(&ogconfig.db);
+	if (!dbi) {
+		syslog(LOG_ERR, "cannot open conection database (%s:%d)\n",
+		       __func__, __LINE__);
+		goto err_return;
+	}
+
+	for (i = 0; i < params->ips_array_len; i++) {
+
+		result = dbi_conn_queryf(dbi->conn, centerid_query, params->ips_array[i]);
+		if (!result) {
+			dbi_conn_error(dbi->conn, &msglog);
+			syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
+			       __func__, __LINE__, msglog);
+			goto err_close_dbi;
+		}
+
+		if (dbi_result_get_numrows(result) != 1 ||
+		    !dbi_result_next_row(result) ||
+		    !dbi_result_get_uint(result, "idcentro") ||
+		    !dbi_result_get_uint(result, "idordenador")) {
+			dbi_conn_error(dbi->conn, &msglog);
+			syslog(LOG_ERR, "failed to get query data (%s:%d) %s\n",
+			       __func__, __LINE__, msglog);
+			goto err_free_result;
+		}
+
+		task.center_id = dbi_result_get_uint(result, "idcentro");
+		task.scope = dbi_result_get_uint(result, "idordenador");
+		dbi_result_free(result);
+
+		if (og_dbi_queue_procedure(dbi, &task))
+			goto err_close_dbi;
+	}
+
+	og_dbi_close(dbi);
+
+	return og_send_request(OG_METHOD_GET, OG_CMD_RUN_SCHEDULE, params,
+			       NULL);
+
+err_free_result:
+	dbi_result_free(result);
+err_close_dbi:
+	og_dbi_close(dbi);
+err_return:
+	return -1;
+}
+
 static int og_client_method_not_found(struct og_client *cli)
 {
 	/* To meet RFC 7231, this function MUST generate an Allow header field
@@ -5130,6 +5214,19 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 			goto err_process_rest_payload;
 		}
 		err = og_cmd_post_procedure_add(root, &params);
+	} else if (!strncmp(cmd, "procedure/run", strlen("procedure/run"))) {
+		if (method != OG_METHOD_POST) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
+
+		if (!root) {
+			syslog(LOG_ERR,
+			       "command procedure run with no payload\n");
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
+		}
+		err = og_cmd_post_procedure_run(root, &params);
 	} else if (!strncmp(cmd, "schedule/command", strlen("schedule/command"))) {
 		if (method != OG_METHOD_POST) {
 			err = og_client_method_not_found(cli);
