@@ -4271,6 +4271,112 @@ static int og_cmd_post_procedure_delete(json_t *element,
 	return 0;
 }
 
+static int og_cmd_post_procedure_update(json_t *element,
+					struct og_msg_params *params)
+{
+	struct og_procedure proc = {};
+	const char *key, *msglog;
+	struct og_dbi *dbi;
+	dbi_result result;
+	json_t *value;
+	int err = 0;
+
+	json_object_foreach(element, key, value) {
+		if (!strcmp(key, "procedure")) {
+			err = og_json_parse_string(value, &params->task_id);
+			params->flags |= OG_REST_PARAM_TASK;
+		} else if (!strcmp(key, "center")) {
+			err = og_json_parse_string(value, &params->id);
+			params->flags |= OG_REST_PARAM_ID;
+		} else if (!strcmp(key, "name")) {
+			err = og_json_parse_string(value, &params->name);
+			params->flags |= OG_REST_PARAM_NAME;
+		} else if (!strcmp(key, "description")) {
+			err = og_json_parse_string(value, &params->comment);
+		} else if (!strcmp(key, "steps")) {
+			err = og_json_parse_procedure(value, &proc);
+		}
+
+		if (err < 0)
+			return err;
+	}
+
+	if (!og_msg_params_validate(params, OG_REST_PARAM_TASK |
+					    OG_REST_PARAM_ID |
+					    OG_REST_PARAM_NAME))
+		return -1;
+
+	dbi = og_dbi_open(&ogconfig.db);
+	if (!dbi) {
+		syslog(LOG_ERR, "cannot open conection database (%s:%d)\n",
+		       __func__, __LINE__);
+		return -1;
+	}
+
+	result = dbi_conn_queryf(dbi->conn,
+				 "SELECT descripcion FROM procedimientos "
+				 "WHERE descripcion = '%s' AND idcentro = %s "
+				 "AND idprocedimiento <> %s",
+				 params->name, params->id, params->task_id);
+
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		og_dbi_close(dbi);
+		return -1;
+	}
+
+	if (dbi_result_get_numrows(result) > 0) {
+		syslog(LOG_ERR, "Procedure with name %s already exists in the "
+				"center with id %s\n",
+		       params->name, params->id);
+		dbi_result_free(result);
+		og_dbi_close(dbi);
+		return -1;
+	}
+	dbi_result_free(result);
+
+	result = dbi_conn_queryf(dbi->conn,
+				 "UPDATE procedimientos SET idcentro = %s, "
+				 "descripcion = '%s', comentarios = '%s' "
+				 "WHERE idprocedimiento = %s",
+				 params->id, params->name, params->comment,
+				 params->task_id);
+
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR,
+		       "failed to update procedure %s (%s:%d) %s\n",
+		       params->task_id, __func__, __LINE__, msglog);
+		og_dbi_close(dbi);
+		return -1;
+	}
+	dbi_result_free(result);
+
+	result = dbi_conn_queryf(dbi->conn,
+				 "DELETE FROM procedimientos_acciones "
+				 "WHERE idprocedimiento = %s",
+				 params->task_id);
+
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR,
+		       "failed to delete old procedure %s steps (%s:%d) %s\n",
+		       params->task_id, __func__, __LINE__, msglog);
+		og_dbi_close(dbi);
+		return -1;
+	}
+	dbi_result_free(result);
+
+	proc.id = atoll(params->task_id);
+	err = og_procedure_add_steps(dbi, &proc);
+
+	og_dbi_close(dbi);
+
+	return err;
+}
+
 static int og_cmd_post_room_add(json_t *element,
 				struct og_msg_params *params)
 {
@@ -5213,6 +5319,20 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 			goto err_process_rest_payload;
 		}
 		err = og_cmd_post_procedure_add(root, &params);
+	} else if (!strncmp(cmd, "procedure/update",
+			    strlen("procedure/update"))) {
+		if (method != OG_METHOD_POST) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
+
+		if (!root) {
+			syslog(LOG_ERR,
+			       "command procedure update with no payload\n");
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
+		}
+		err = og_cmd_post_procedure_update(root, &params);
 	} else if (!strncmp(cmd, "procedure/run", strlen("procedure/run"))) {
 		if (method != OG_METHOD_POST) {
 			err = og_client_method_not_found(cli);
