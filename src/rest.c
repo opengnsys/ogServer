@@ -4079,7 +4079,6 @@ static int og_cmd_post_center_delete(json_t *element,
 int og_procedure_add_steps(struct og_dbi *dbi, struct og_procedure *proc)
 {
 	struct og_procedure_step *step;
-	uint64_t procedure = 0;
 	const char *legacy_params;
 	const char *msglog;
 	dbi_result result;
@@ -4098,7 +4097,7 @@ int og_procedure_add_steps(struct og_dbi *dbi, struct og_procedure *proc)
 						 "INSERT INTO procedimientos_acciones "
 						 "(idprocedimiento, orden, parametros) "
 						 "VALUES (%d, %d, '%s')",
-						 procedure,
+						 proc->id,
 						 step->position,
 						 legacy_params);
 			if (!result) {
@@ -4119,7 +4118,7 @@ int og_procedure_add_steps(struct og_dbi *dbi, struct og_procedure *proc)
 						 "INSERT INTO procedimientos_acciones "
 						 "(idprocedimiento, orden, procedimientoid) "
 						 "VALUES (%d, %d, %d)",
-						 procedure,
+						 proc->id,
 						 step->position,
 						 step->procedure.id);
 			if (!result) {
