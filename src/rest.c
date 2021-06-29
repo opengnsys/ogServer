@@ -4131,6 +4131,12 @@ int og_procedure_add_steps(struct og_dbi *dbi, struct og_procedure *proc)
 			}
 			dbi_result_free(result);
 			break;
+		case OG_STEP_TASK:
+			syslog(LOG_ERR, "Procedures can not include tasks. "
+					"Invalid step: %d\n",
+			       step->position);
+			return -1;
+			break;
 		}
 	}
 
@@ -4371,6 +4377,149 @@ static int og_cmd_post_procedure_update(json_t *element,
 
 	proc.id = atoll(params->task_id);
 	err = og_procedure_add_steps(dbi, &proc);
+
+	og_dbi_close(dbi);
+
+	return err;
+}
+
+static int og_task_add_steps(struct og_dbi *dbi, struct og_procedure *task)
+{
+	struct og_procedure_step *step;
+	const char *msglog;
+	dbi_result result;
+	int i;
+
+	for (i = 0; i < task->num_steps; i++) {
+		step = &task->steps[i];
+		switch (step->type) {
+		case OG_STEP_COMMAND:
+			syslog(LOG_ERR, "Tasks can not include commands. "
+					"Invalid step: %d\n",
+			       step->position);
+			return -1;
+			break;
+		case OG_STEP_PROCEDURE:
+			result = dbi_conn_queryf(dbi->conn,
+						 "INSERT INTO tareas_acciones "
+						 "(idtarea, orden, idprocedimiento) "
+						 "VALUES (%d, %d, %d)",
+						 task->id,
+						 step->position,
+						 step->procedure.id);
+			if (!result) {
+				dbi_conn_error(dbi->conn, &msglog);
+				syslog(LOG_ERR,
+				       "failed to add procedure child to database (%s:%d) %s\n",
+				       __func__, __LINE__, msglog);
+				og_dbi_close(dbi);
+				return -1;
+			}
+			dbi_result_free(result);
+			break;
+		case OG_STEP_TASK:
+			result = dbi_conn_queryf(dbi->conn,
+						 "INSERT INTO tareas_acciones "
+						 "(idtarea, orden, tareaid) "
+						 "VALUES (%d, %d, %d)",
+						 task->id,
+						 step->position,
+						 step->procedure.id);
+			if (!result) {
+				dbi_conn_error(dbi->conn, &msglog);
+				syslog(LOG_ERR,
+				       "failed to add task child to database (%s:%d) %s\n",
+				       __func__, __LINE__, msglog);
+				og_dbi_close(dbi);
+				return -1;
+			}
+			dbi_result_free(result);
+			break;
+		}
+	}
+
+	return 0;
+}
+
+static int og_cmd_post_task_add(json_t *element,
+				     struct og_msg_params *params)
+{
+	struct og_procedure task = {};
+	const char *key, *msglog;
+	struct og_dbi *dbi;
+	dbi_result result;
+	json_t *value;
+	int err = 0;
+
+	json_object_foreach(element, key, value) {
+		if (!strcmp(key, "center")) {
+			err = og_json_parse_string(value, &params->id);
+			params->flags |= OG_REST_PARAM_ID;
+		} else if (!strcmp(key, "name")) {
+			err = og_json_parse_string(value, &params->name);
+			params->flags |= OG_REST_PARAM_NAME;
+		} else if (!strcmp(key, "description")) {
+			err = og_json_parse_string(value, &params->comment);
+		} else if (!strcmp(key, "steps")) {
+			err = og_json_parse_procedure(value, &task);
+		}
+
+		if (err < 0)
+			return err;
+	}
+
+	if (!og_msg_params_validate(params, OG_REST_PARAM_ID |
+					    OG_REST_PARAM_NAME))
+		return -1;
+
+	dbi = og_dbi_open(&ogconfig.db);
+	if (!dbi) {
+		syslog(LOG_ERR, "cannot open conection database (%s:%d)\n",
+		       __func__, __LINE__);
+		return -1;
+	}
+
+	result = dbi_conn_queryf(dbi->conn,
+				 "SELECT descripcion FROM tareas "
+				 "WHERE descripcion='%s' AND idcentro=%s",
+				 params->name, params->id);
+
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		og_dbi_close(dbi);
+		return -1;
+	}
+
+	if (dbi_result_get_numrows(result) > 0) {
+		syslog(LOG_ERR, "Task with name %s already exists in the "
+				"center with id %s\n",
+		       params->name, params->id);
+		dbi_result_free(result);
+		og_dbi_close(dbi);
+		return -1;
+	}
+	dbi_result_free(result);
+
+	result = dbi_conn_queryf(dbi->conn,
+				 "INSERT INTO tareas("
+				 "idcentro, descripcion, comentarios) "
+				 "VALUES (%s, '%s', '%s')",
+				 params->id, params->name, params->comment);
+
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR,
+		       "failed to add task to database (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		og_dbi_close(dbi);
+		return -1;
+	}
+	dbi_result_free(result);
+
+	task.id = dbi_conn_sequence_last(dbi->conn, NULL);
+	err = og_task_add_steps(dbi, &task);
 
 	og_dbi_close(dbi);
 
@@ -5372,6 +5521,19 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 			goto err_process_rest_payload;
 		}
 		err = og_cmd_post_procedure_delete(root, &params);
+	} else if (!strncmp(cmd, "task/add", strlen("task/add"))) {
+		if (method != OG_METHOD_POST) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
+
+		if (!root) {
+			syslog(LOG_ERR,
+			       "command task add with no payload\n");
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
+		}
+		err = og_cmd_post_task_add(root, &params);
 	} else {
 		syslog(LOG_ERR, "unknown command: %.32s ...\n", cmd);
 		err = og_client_not_found(cli);

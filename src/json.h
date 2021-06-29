@@ -105,6 +105,7 @@ struct og_cmd_json {
 enum og_procedure_step_type {
 	OG_STEP_COMMAND		= 0,
 	OG_STEP_PROCEDURE,
+	OG_STEP_TASK,
 };
 
 #define OG_PROCEDURE_STEPS_MAX	256

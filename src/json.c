@@ -187,6 +187,28 @@ static int og_json_parse_procedure_call(json_t *element, int position,
 	return err;
 }
 
+static int og_json_parse_task_call(json_t *element, int position,
+				   struct og_procedure *task)
+{
+	struct og_procedure_step *step;
+	uint32_t err = 0;
+	const char *key;
+	json_t *value;
+
+	step = &task->steps[task->num_steps++];
+	step->type = OG_STEP_TASK;
+	step->position = position;
+
+	json_object_foreach(element, key, value) {
+		if (!strcmp(key, "task"))
+			err = og_json_parse_uint64(value, &step->procedure.id);
+		else
+			return -1;
+	}
+
+	return err;
+}
+
 int og_json_parse_procedure(json_t *element, struct og_procedure *proc)
 {
 	unsigned int i;
@@ -203,6 +225,8 @@ int og_json_parse_procedure(json_t *element, struct og_procedure *proc)
 			err = og_json_parse_procedure_cmd(item, i, proc);
 		else if (json_object_get(item, "procedure"))
 			err = og_json_parse_procedure_call(item, i, proc);
+		else if (json_object_get(item, "task"))
+			err = og_json_parse_task_call(item, i, proc);
 		else
 			err = -1;
 
