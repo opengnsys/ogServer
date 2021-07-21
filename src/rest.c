@@ -2979,7 +2979,7 @@ static int og_dbi_queue_command(struct og_dbi *dbi, uint32_t task_id,
 	result = dbi_conn_queryf(dbi->conn,
 			"SELECT idaccion, idcentro, idordenador, parametros "
 			"FROM acciones "
-			"WHERE idaccion = %u", task_id);
+			"WHERE sesion = %u", task_id);
 	if (!result) {
 		dbi_conn_error(dbi->conn, &msglog);
 		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
@@ -4701,13 +4701,13 @@ static int og_cmd_post_schedule_command(json_t *element,
 				"INNER JOIN aulas AS a ON o.idaula = a.idaula "
 				"INNER JOIN centros AS c ON a.idcentro = c.idcentro "
 				"WHERE o.ip = '%s';";
+	uint32_t sequence, session = 0;
 	int center_id, client_id, len;
 	struct og_cmd_json cmd = {};
 	const char *legacy_params;
 	const char *key, *msglog;
 	struct og_dbi *dbi;
 	char task_id[128];
-	uint32_t sequence;
 	bool when = false;
 	dbi_result result;
 	json_t *value;
@@ -4819,6 +4819,26 @@ static int og_cmd_post_schedule_command(json_t *element,
 		dbi_result_free(result);
 
 		sequence = dbi_conn_sequence_last(dbi->conn, NULL);
+
+		/* This 'session' ID allows us to correlate the schedule with
+		 * the commands after expansion.
+		 */
+		if (!session)
+			session = dbi_conn_sequence_last(dbi->conn, NULL);
+
+		result = dbi_conn_queryf(dbi->conn, "UPDATE acciones SET idordenador=%d, "
+						    "idcentro=%d, parametros='%s', sesion=%d"
+						    "WHERE idaccion=%d",
+					 client_id, center_id, legacy_params,
+					 session, sequence);
+		if (!result) {
+			dbi_conn_error(dbi->conn, &msglog);
+			syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
+			       __func__, __LINE__, msglog);
+			goto err_dbi_result;
+		}
+		dbi_result_free(result);
+
 		len = snprintf(task_id, sizeof(sequence), "%d", sequence);
 		if (len >= (int)sizeof(task_id)) {
 			syslog(LOG_ERR, "truncated snprintf (%s:%d)\n",
@@ -4826,8 +4846,9 @@ static int og_cmd_post_schedule_command(json_t *element,
 			goto err_dbi;
 		}
 		params->task_id = task_id;
-		og_task_schedule_create(params);
 	}
+
+	og_task_schedule_create(params);
 
 	free((char *)legacy_params);
 	og_dbi_close(dbi);
