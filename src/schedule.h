@@ -55,6 +55,7 @@ struct og_task {
 	uint32_t	center_id;
 	uint32_t	schedule_id;
 	uint32_t	type_scope;
+	uint32_t	session;
 	uint32_t	scope;
 	const char	*filtered_scope;
 	const char	*params;

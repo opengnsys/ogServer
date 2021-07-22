@@ -2666,7 +2666,7 @@ static int og_cmd_legacy(const char *input, struct og_cmd *cmd)
 	return err;
 }
 
-static int og_dbi_add_action(const struct og_dbi *dbi, const struct og_task *task,
+static int og_dbi_add_action(const struct og_dbi *dbi, struct og_task *task,
 			     struct og_cmd *cmd)
 {
 	char start_date_string[24];
@@ -2692,7 +2692,7 @@ static int og_dbi_add_action(const struct og_dbi *dbi, const struct og_task *tas
 				"VALUES (%d, %d, %d, '%s', '%s', %d, %d, '%s', "
 				"'%s', %d, %d, %d, %d, '%s', %d, %d, %d)",
 				cmd->client_id, EJECUCION_TAREA, task->task_id,
-				"", cmd->ip, 0, task->command_id,
+				"", cmd->ip, task->session, task->command_id,
 				task->params, start_date_string,
 				ACCION_INICIADA, ACCION_SINRESULTADO,
 				task->type_scope, task->scope, "",
@@ -2704,13 +2704,23 @@ static int og_dbi_add_action(const struct og_dbi *dbi, const struct og_task *tas
 		       __func__, __LINE__, msglog);
 		return -1;
 	}
+
 	cmd->id = dbi_conn_sequence_last(dbi->conn, NULL);
+	if (!task->session) {
+		task->session = cmd->id;
+		dbi_result_free(result);
+		result = dbi_conn_queryf(dbi->conn,
+					 "UPDATE acciones SET sesion=%d "
+					 "WHERE idaccion=%d",
+					 task->session, cmd->id);
+	}
+
 	dbi_result_free(result);
 
 	return 0;
 }
 
-static int og_queue_task_command(struct og_dbi *dbi, const struct og_task *task,
+static int og_queue_task_command(struct og_dbi *dbi, struct og_task *task,
 				 char *query)
 {
 	struct og_cmd *cmd;
