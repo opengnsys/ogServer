@@ -4848,15 +4848,15 @@ static int og_cmd_post_schedule_command(json_t *element,
 			goto err_dbi_result;
 		}
 		dbi_result_free(result);
-
-		len = snprintf(task_id, sizeof(sequence), "%d", sequence);
-		if (len >= (int)sizeof(task_id)) {
-			syslog(LOG_ERR, "truncated snprintf (%s:%d)\n",
-			       __func__, __LINE__);
-			goto err_dbi;
-		}
-		params->task_id = task_id;
 	}
+
+	len = snprintf(task_id, sizeof(session), "%d", session);
+	if (len >= (int)sizeof(task_id)) {
+		syslog(LOG_ERR, "truncated snprintf (%s:%d)\n",
+		       __func__, __LINE__);
+		goto err_dbi_result;
+	}
+	params->task_id = task_id;
 
 	og_task_schedule_create(params);
 
