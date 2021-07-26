@@ -27,6 +27,7 @@ void og_dbi_close(struct og_dbi *db);
 #define OG_DB_ROOM_LOC_MAXLEN		255
 #define OG_DB_SERIAL_NUMBER_MAXLEN	25
 #define OG_DB_IMAGE_DESCRIPTION_MAXLEN 	250
+#define OG_DB_PART_NAME_MAXLEN 	250
 #define OG_DB_IMAGE_NAME_MAXLEN 50
 #define OG_DB_FILESYSTEM_MAXLEN 16
 #define OG_DB_NETDRIVER_MAXLEN	30
@@ -63,7 +64,7 @@ struct og_image {
 
 struct og_legacy_partition {
 	char partition[OG_DB_SMALLINT_MAXLEN + 1];
-	char code[OG_DB_INT8_MAXLEN + 1];
+	char code[OG_DB_PART_NAME_MAXLEN + 1];
 	char size[OG_DB_INT_MAXLEN + 1];
 	char filesystem[OG_DB_FILESYSTEM_MAXLEN + 1];
 	char format[2]; /* Format is a boolean 0 or 1 => length is 2 */
