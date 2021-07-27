@@ -3,7 +3,7 @@
 [Unit]
 Documentation=https://opengnsys.es/trac/wiki/En%%3ADocumentacionUsuario
 Description=OpenGnsys server
-Requires=mysql.service
+Wants=mysql.service
 After=mysql.service
 
 [Install]
