@@ -186,13 +186,24 @@ static void og_agent_reset_state(struct og_client *cli)
 	memset(cli->buf, 0, sizeof(cli->buf));
 }
 
+#define OG_AGENT_CMD_TIMEOUT 900
+
 static void og_agent_deliver_pending_cmd(struct og_client *cli)
 {
+	struct timeval now, elapsed;
 	const struct og_cmd *cmd;
 
 	cmd = og_cmd_find(inet_ntoa(cli->addr.sin_addr));
 	if (!cmd)
 		return;
+
+	gettimeofday(&now, NULL);
+	timersub(&now, &cmd->tv, &elapsed);
+	if (elapsed.tv_sec >= OG_AGENT_CMD_TIMEOUT) {
+		og_dbi_update_action(cmd->id, false);
+		og_cmd_free(cmd);
+		return;
+	}
 
 	og_send_request(cmd->method, cmd->type, &cmd->params, cmd->json);
 	cli->last_cmd_id = cmd->id;

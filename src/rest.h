@@ -2,6 +2,7 @@
 #define OG_REST_H
 
 #include <ev.h>
+#include <sys/time.h>
 
 extern struct ev_loop *og_loop;
 
@@ -89,6 +90,7 @@ struct og_cmd {
 	enum og_rest_method	method;
 	struct og_msg_params	params;
 	json_t			*json;
+	struct timeval		tv;
 };
 
 const struct og_cmd *og_cmd_find(const char *client_ip);

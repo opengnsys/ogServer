@@ -2323,6 +2323,7 @@ static void og_cmd_init(struct og_cmd *cmd, enum og_rest_method method,
 	cmd->params.ips_array[0] = strdup(cmd->ip);
 	cmd->params.ips_array_len = 1;
 	cmd->json = root;
+	gettimeofday(&cmd->tv, NULL);
 }
 
 static int og_cmd_legacy_wol(const char *input, struct og_cmd *cmd)
