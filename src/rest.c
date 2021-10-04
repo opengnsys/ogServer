@@ -2208,6 +2208,83 @@ static int og_cmd_restore_image(json_t *element, struct og_msg_params *params)
 			       clients);
 }
 
+static int og_cmd_delete_image(json_t *element, struct og_msg_params *params)
+{
+	char filename[PATH_MAX + 1];
+	const char *key, *image;
+	struct og_dbi *dbi;
+	dbi_result result;
+	int rval, err = 0;
+	json_t *value;
+
+
+	if (json_typeof(element) != JSON_OBJECT)
+		return -1;
+
+	json_object_foreach(element, key, value) {
+		if (!strcmp(key, "image")) {
+			err = og_json_parse_string(value, &params->id);
+			params->flags |= OG_REST_PARAM_ID;
+		}
+
+		if (err < 0)
+			return err;
+	}
+
+	if (!og_msg_params_validate(params, OG_REST_PARAM_ID))
+		return -1;
+
+	dbi = og_dbi_open(&ogconfig.db);
+	if (!dbi) {
+		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
+		       __func__, __LINE__);
+		return -1;
+	}
+
+	result = dbi_conn_queryf(dbi->conn,
+				 "SELECT nombreca FROM imagenes "
+				 "WHERE idimagen='%s'",
+				 params->id);
+	if (!result) {
+		og_dbi_close(dbi);
+		syslog(LOG_ERR, "failed to query database\n");
+		return -1;
+	}
+	if (!dbi_result_next_row(result)) {
+		dbi_result_free(result);
+		og_dbi_close(dbi);
+		syslog(LOG_ERR, "image does not exist in database\n");
+		return -1;
+	}
+
+	image = dbi_result_get_string(result, "nombreca");
+	snprintf(filename, sizeof(filename), "%s/%s.img", ogconfig.repo.dir,
+		 image);
+	dbi_result_free(result);
+
+	result = dbi_conn_queryf(dbi->conn,
+				 "DELETE FROM imagenes "
+				 "WHERE idimagen='%s'",
+				 params->id);
+	if (!result) {
+		og_dbi_close(dbi);
+		syslog(LOG_ERR, "failed to query database\n");
+		return -1;
+	}
+	dbi_result_free(result);
+
+	rval = unlink(filename);
+	if (rval) {
+		og_dbi_close(dbi);
+		syslog(LOG_ERR, "cannot delete image %s: %s\n",
+		       image, strerror(errno));
+		return -1;
+	}
+	og_dbi_close(dbi);
+
+	return 0;
+}
+
 static int og_cmd_setup(json_t *element, struct og_msg_params *params)
 {
 	json_t *value, *clients;
@@ -5348,6 +5425,19 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 			goto err_process_rest_payload;
 		}
 		err = og_cmd_restore_image(root, &params);
+	} else if (!strncmp(cmd, "image/delete", strlen("image/delete"))) {
+		if (method != OG_METHOD_POST) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
+
+		if (!root) {
+			syslog(LOG_ERR,
+			       "command image delete with no payload\n");
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
+		}
+		err = og_cmd_delete_image(root, &params);
 	} else if (!strncmp(cmd, "setup", strlen("setup"))) {
 		if (method != OG_METHOD_POST) {
 			err = og_client_method_not_found(cli);
