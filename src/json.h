@@ -88,6 +88,7 @@ struct og_msg_params {
 	struct og_partition	partition_setup[OG_PARTITION_MAX];
 	struct og_sync_params sync_setup;
 	struct og_schedule_time time;
+	struct og_image image;
 	const char	*task_id;
 	uint64_t	flags;
 };

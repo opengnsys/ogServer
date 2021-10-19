@@ -2044,9 +2044,8 @@ static int og_cmd_images(char *buffer_reply)
 int og_json_parse_create_image(json_t *element,
 			       struct og_msg_params *params)
 {
-	struct og_image image = {};
-	json_t *value;
 	const char *key;
+	json_t *value;
 	int err = 0;
 
 	if (json_typeof(element) != JSON_OBJECT)
@@ -2060,7 +2059,9 @@ int og_json_parse_create_image(json_t *element,
 			err = og_json_parse_string(value, &params->partition);
 			params->flags |= OG_REST_PARAM_PARTITION;
 		} else if (!strcmp(key, "name")) {
-			err = og_json_parse_string(value, &params->name);
+			err = og_json_parse_string_copy(value,
+							(char *)&params->image.name,
+							sizeof(params->image.name));
 			params->flags |= OG_REST_PARAM_NAME;
 		} else if (!strcmp(key, "repository")) {
 			err = og_json_parse_string(value, &params->repository);
@@ -2075,12 +2076,12 @@ int og_json_parse_create_image(json_t *element,
 			params->flags |= OG_REST_PARAM_CODE;
 		} else if (!strcmp(key, "description")) {
 			err = og_json_parse_string_copy(value,
-							image.description,
-							sizeof(image.description));
+							(char *)&params->image.description,
+							sizeof(params->image.description));
 		} else if (!strcmp(key, "group_id")) {
-			err = og_json_parse_uint64(value, &image.group_id);
+			err = og_json_parse_uint64(value, &params->image.group_id);
 		} else if (!strcmp(key, "center_id")) {
-			err = og_json_parse_uint64(value, &image.center_id);
+			err = og_json_parse_uint64(value, &params->image.center_id);
 		}
 
 		if (err < 0)
@@ -2093,7 +2094,6 @@ int og_json_parse_create_image(json_t *element,
 static int og_cmd_create_image(json_t *element, struct og_msg_params *params)
 {
 	char new_image_id[OG_DB_INT_MAXLEN + 1];
-	struct og_image image = {};
 	struct og_dbi *dbi;
 	json_t *clients;
 	int err = 0;
@@ -2112,9 +2112,7 @@ static int og_cmd_create_image(json_t *element, struct og_msg_params *params)
 		return -1;
 
 	/* If there is a description, this means the image is not in the DB. */
-	if (image.description[0]) {
-		snprintf(image.name, sizeof(image.name), "%s", params->name);
-
+	if (params->image.description[0]) {
 		dbi = og_dbi_open(&ogconfig.db);
 		if (!dbi) {
 			syslog(LOG_ERR,
@@ -2123,7 +2121,7 @@ static int og_cmd_create_image(json_t *element, struct og_msg_params *params)
 			return -1;
 		}
 
-		err = og_dbi_add_image(dbi, &image);
+		err = og_dbi_add_image(dbi, &params->image);
 
 		og_dbi_close(dbi);
 		if (err < 0)
