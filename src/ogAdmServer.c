@@ -891,12 +891,13 @@ bool actualizaSoftware(struct og_dbi *dbi, char *sft, char *par,char *ido,
 			}
 
 			// Recupera el identificador del software
-			tbidsoftware[i] = dbi_conn_sequence_last(dbi->conn, NULL);
+			tbidsoftware[i - 1] = dbi_conn_sequence_last(dbi->conn, NULL);
 		} else {
-			tbidsoftware[i] = dbi_result_get_uint(result, "idsoftware");
+			tbidsoftware[i - 1] = dbi_result_get_uint(result, "idsoftware");
 		}
 		dbi_result_free(result);
 	}
+	lon--;
 
 	// Ordena tabla de identificadores para cosultar si existe un pefil con esas especificaciones
 
