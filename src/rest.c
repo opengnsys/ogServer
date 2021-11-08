@@ -124,6 +124,8 @@ static const char *og_client_status(const struct og_client *cli)
 		return "OPG";
 	case OG_CLIENT_STATUS_VIRTUAL:
 		return "VDI";
+	case OG_CLIENT_STATUS_LINUX:
+		return "LINUX";
 	default:
 		return "OFF";
 	}

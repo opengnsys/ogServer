@@ -16,6 +16,7 @@ enum og_client_status {
 	OG_CLIENT_STATUS_OGLIVE,
 	OG_CLIENT_STATUS_BUSY,
 	OG_CLIENT_STATUS_VIRTUAL,
+	OG_CLIENT_STATUS_LINUX,
 };
 
 enum og_cmd_type {

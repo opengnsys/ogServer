@@ -286,6 +286,7 @@ static int og_resp_refresh(json_t *data, struct og_client *cli)
 	struct og_partition disks[OG_DISK_MAX] = {};
 	const char *serial_number = NULL;
 	struct og_computer computer = {};
+	const char *status = NULL;
 	char cfg[4096] = {};
 	struct og_dbi *dbi;
 	const char *key;
@@ -304,10 +305,17 @@ static int og_resp_refresh(json_t *data, struct og_client *cli)
 			err = og_json_parse_partition_array(value, partitions);
 		} else if (!strcmp(key, "serial_number")) {
 			err = og_json_parse_string(value, &serial_number);
+		} else if (!strcmp(key, "status")) {
+			err = og_json_parse_string(value, &status);
 		}
 
 		if (err < 0)
 			return err;
+	}
+
+	if (status && !strncmp(status, "LINUX", strlen("LINUX"))) {
+		cli->status = OG_CLIENT_STATUS_LINUX;
+		return 0;
 	}
 
 	if (strlen(serial_number) > 0)
