@@ -251,9 +251,6 @@ static void og_agent_read_cb(struct ev_loop *loop, struct ev_io *io, int events)
 	case OG_AGENT_PROCESSING_RESPONSE:
 		ret = og_agent_state_process_response(cli);
 		if (ret < 0) {
-			syslog(LOG_ERR, "Failed to process HTTP request from %s:%hu\n",
-			       inet_ntoa(cli->addr.sin_addr),
-			       ntohs(cli->addr.sin_port));
 			goto close;
 		} else if (ret == 0) {
 			og_agent_deliver_pending_cmd(cli);

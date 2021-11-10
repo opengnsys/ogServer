@@ -610,29 +610,82 @@ static int og_resp_image_restore(json_t *data, struct og_client *cli)
 	return 0;
 }
 
+static int og_agent_http_response_code(const char *buf)
+{
+	if (!strncmp(buf, "HTTP/1.0 200 OK", strlen("HTTP/1.0 200 OK"))) {
+		return 200;
+	} else if (!strncmp(buf, "HTTP/1.0 202 Accepted",
+			    strlen("HTTP/1.0 202 Accepted"))) {
+		return 202;
+	} else if (!strncmp(buf, "HTTP/1.0 400 Bad Request",
+			    strlen("HTTP/1.0 400 Bad Request"))) {
+		return 400;
+	} else if (!strncmp(buf, "HTTP/1.0 500 Internal Server Error",
+			    strlen("HTTP/1.0 500 Internal Server Error"))) {
+		return 500;
+	} else if (!strncmp(buf, "HTTP/1.0 503 Service Unavailable",
+			    strlen("HTTP/1.0 503 Service Unavailable"))) {
+		return 503;
+	}
+
+	return -1;
+}
+
 int og_agent_state_process_response(struct og_client *cli)
 {
+	int ret, err = -1, code;
 	json_error_t json_err;
+	bool success;
 	json_t *root;
-	int err = -1;
 	char *body;
 
-	if (!strncmp(cli->buf, "HTTP/1.0 202 Accepted",
-		     strlen("HTTP/1.0 202 Accepted"))) {
-		og_dbi_update_action(cli->last_cmd_id, true);
-		cli->last_cmd_id = 0;
-		return 1;
+	code = og_agent_http_response_code(cli->buf);
+	switch (code) {
+	case 200:
+		ret = 0;
+		success = true;
+		break;
+	case 202:
+		ret = 1;
+		success = true;
+		break;
+	case 400:
+		ret = -1;
+		success = false;
+		syslog(LOG_ERR, "Client %s:%hu reports malformed HTTP request from server\n",
+		       inet_ntoa(cli->addr.sin_addr), ntohs(cli->addr.sin_port));
+		break;
+	case 500:
+		ret = 0;
+		success = false;
+		cli->last_cmd = OG_CMD_UNSPEC;
+		syslog(LOG_ERR, "Client %s:%hu reports failure to process command\n",
+		       inet_ntoa(cli->addr.sin_addr), ntohs(cli->addr.sin_port));
+		/* ... cancel pending actions related to this task for this client here */
+		break;
+	case 503:
+		ret = 1;
+		success = false;
+		syslog(LOG_ERR, "Client %s:%hu is busy to process command\n",
+		       inet_ntoa(cli->addr.sin_addr), ntohs(cli->addr.sin_port));
+		break;
+	default:
+		ret = -1;
+		success = false;
+		syslog(LOG_ERR, "Client %s:%hu reports unknown HTTP response code\n",
+		       inet_ntoa(cli->addr.sin_addr), ntohs(cli->addr.sin_port));
+		break;
 	}
 
-	if (strncmp(cli->buf, "HTTP/1.0 200 OK", strlen("HTTP/1.0 200 OK"))) {
-		og_dbi_update_action(cli->last_cmd_id, false);
+	if (code != 200) {
+		og_dbi_update_action(cli->last_cmd_id, success);
 		cli->last_cmd_id = 0;
-		return -1;
+		return ret;
 	}
-	og_dbi_update_action(cli->last_cmd_id, true);
-	cli->last_cmd_id = 0;
 
 	if (!cli->content_length) {
+		og_dbi_update_action(cli->last_cmd_id, true);
+		cli->last_cmd_id = 0;
 		cli->last_cmd = OG_CMD_UNSPEC;
 		return 0;
 	}
@@ -677,6 +730,15 @@ int og_agent_state_process_response(struct og_client *cli)
 	}
 
 	json_decref(root);
+
+	if (err < 0) {
+		err = 0;
+		success = false;
+		/* ... cancel pending actions related to this task for this client here */
+	}
+
+	og_dbi_update_action(cli->last_cmd_id, success);
+	cli->last_cmd_id = 0;
 	cli->last_cmd = OG_CMD_UNSPEC;
 
 	return err;
