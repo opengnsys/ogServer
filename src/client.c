@@ -313,8 +313,12 @@ static int og_resp_refresh(json_t *data, struct og_client *cli)
 			return err;
 	}
 
-	if (status && !strncmp(status, "LINUX", strlen("LINUX"))) {
-		cli->status = OG_CLIENT_STATUS_LINUX;
+	if (status) {
+		if (!strncmp(status, "LINUX", strlen("LINUX"))) {
+			cli->status = OG_CLIENT_STATUS_LINUX;
+		} else if (!strncmp(status, "WIN", strlen("WIN"))) {
+			cli->status = OG_CLIENT_STATUS_WIN;
+		}
 		return 0;
 	}
 
