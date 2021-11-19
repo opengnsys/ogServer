@@ -3248,8 +3248,10 @@ static int og_cmd_task_post(json_t *element, struct og_msg_params *params)
 			       NULL);
 }
 
-static int og_dbi_scope_get_computer(struct og_dbi *dbi, json_t *array,
-				     uint32_t room_id)
+#define OG_QUERY_MAXLEN 4096
+
+static int og_dbi_scope_get_computer(const struct og_dbi *dbi, json_t *array,
+				     const char* query)
 {
 	const char *computer_name, *computer_ip;
 	uint32_t computer_id;
@@ -3257,10 +3259,7 @@ static int og_dbi_scope_get_computer(struct og_dbi *dbi, json_t *array,
 	dbi_result result;
 	json_t *computer;
 
-	result = dbi_conn_queryf(dbi->conn,
-				 "SELECT idordenador, nombreordenador, ip "
-				 "FROM ordenadores WHERE idaula=%d",
-				 room_id);
+	result = dbi_conn_queryf(dbi->conn, query);
 	if (!result) {
 		dbi_conn_error(dbi->conn, &msglog);
 		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
@@ -3292,19 +3291,142 @@ static int og_dbi_scope_get_computer(struct og_dbi *dbi, json_t *array,
 	return 0;
 }
 
-static int og_dbi_scope_get_room(struct og_dbi *dbi, json_t *array,
-				 uint32_t center_id)
+static int og_dbi_scope_get_computer_from_room(const struct og_dbi *dbi,
+					       json_t *array, char *query,
+					       const uint32_t room_id)
 {
-	char room_name[OG_DB_ROOM_NAME_MAXLEN + 1] = {};
-	json_t *room, *room_array;
-	const char *msglog;
+	int ret = snprintf(query, OG_QUERY_MAXLEN,
+			   "SELECT idordenador, nombreordenador, ip "
+			   "FROM ordenadores WHERE idaula=%d and grupoid=0",
+			   room_id);
+	if (ret <= 0 || ret >= OG_QUERY_MAXLEN)
+		return -1;
+
+	return og_dbi_scope_get_computer(dbi, array, query);
+}
+
+static int og_dbi_scope_get_computer_from_computers(const struct og_dbi *dbi,
+						    json_t *array,
+						    char *query,
+						    const uint32_t computers_id)
+{
+	int ret = snprintf(query, OG_QUERY_MAXLEN,
+			   "SELECT idordenador, nombreordenador, ip "
+			   "FROM ordenadores WHERE grupoid=%d",
+			   computers_id);
+	if (ret <= 0 || ret >= OG_QUERY_MAXLEN)
+		return -1;
+
+	return og_dbi_scope_get_computer(dbi, array, query);
+}
+
+static int og_dbi_scope_get_computers_from_computers(const struct og_dbi *dbi,
+						     json_t *array,
+						     char *query,
+						     const uint32_t group_id);
+
+static int og_dbi_scope_get_computers(const struct og_dbi *dbi, json_t *array,
+				     char *query)
+{
+	const char *msglog, *computers_name;
+	json_t *computers, *scope_array;
+	uint32_t computers_id;
+	dbi_result result;
+
+	result = dbi_conn_queryf(dbi->conn, query);
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		return -1;
+	}
+
+	while (dbi_result_next_row(result)) {
+		computers_id = dbi_result_get_uint(result, "idgrupo");
+		computers_name = dbi_result_get_string(result,
+						      "nombregrupoordenador");
+
+		computers = json_object();
+		if (!computers) {
+			dbi_result_free(result);
+			return -1;
+		}
+
+		json_object_set_new(computers, "name",
+				    json_string(computers_name));
+		json_object_set_new(computers, "type", json_string("folder"));
+		json_object_set_new(computers, "id",
+				    json_integer(computers_id));
+		json_object_set_new(computers, "scope", json_array());
+		json_array_append(array, computers);
+		json_decref(computers);
+
+		scope_array = json_object_get(computers, "scope");
+		if (!scope_array) {
+			dbi_result_free(result);
+			return -1;
+		}
+
+		if (og_dbi_scope_get_computers_from_computers(dbi,
+							      scope_array,
+							      query,
+							      computers_id)) {
+			dbi_result_free(result);
+			return -1;
+		}
+
+		if (og_dbi_scope_get_computer_from_computers(dbi,
+							     scope_array,
+							     query,
+							     computers_id)) {
+			dbi_result_free(result);
+			return -1;
+		}
+	}
+	dbi_result_free(result);
+
+	return 0;
+}
+
+static int og_dbi_scope_get_computers_from_room(const struct og_dbi *dbi,
+						json_t *array, char *query,
+						const uint32_t room_id)
+{
+	int ret = snprintf(query, OG_QUERY_MAXLEN,
+			   "SELECT idgrupo, nombregrupoordenador "
+			   "FROM gruposordenadores "
+			   "WHERE idaula=%d AND grupoid=0",
+			   room_id);
+	if (ret <= 0 || ret >= OG_QUERY_MAXLEN)
+		return -1;
+
+	return og_dbi_scope_get_computers(dbi, array, query);
+}
+
+static int og_dbi_scope_get_computers_from_computers(const struct og_dbi *dbi,
+						     json_t *array,
+						     char *query,
+						     const uint32_t group_id)
+{
+	int ret = snprintf(query, OG_QUERY_MAXLEN,
+			   "SELECT idgrupo, nombregrupoordenador "
+			   "FROM gruposordenadores WHERE grupoid=%d",
+			   group_id);
+	if (ret <= 0 || ret >= OG_QUERY_MAXLEN)
+		return -1;
+
+	return og_dbi_scope_get_computers(dbi, array, query);
+}
+
+static int og_dbi_scope_get_room(const struct og_dbi *dbi, json_t *array,
+				 char *query)
+{
+	const char *msglog, *room_name;
+	json_t *room, *scope_array;
 	dbi_result result;
 	uint32_t room_id;
 
-	result = dbi_conn_queryf(dbi->conn,
-				 "SELECT idaula, nombreaula FROM aulas WHERE "
-				 "idcentro=%d",
-				 center_id);
+	result = dbi_conn_queryf(dbi->conn, query);
 	if (!result) {
 		dbi_conn_error(dbi->conn, &msglog);
 		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
@@ -3314,9 +3436,7 @@ static int og_dbi_scope_get_room(struct og_dbi *dbi, json_t *array,
 
 	while (dbi_result_next_row(result)) {
 		room_id = dbi_result_get_uint(result, "idaula");
-		strncpy(room_name,
-			dbi_result_get_string(result, "nombreaula"),
-			OG_DB_CENTER_NAME_MAXLEN);
+		room_name = dbi_result_get_string(result, "nombreaula");
 
 		room = json_object();
 		if (!room) {
@@ -3331,13 +3451,20 @@ static int og_dbi_scope_get_room(struct og_dbi *dbi, json_t *array,
 		json_array_append(array, room);
 		json_decref(room);
 
-		room_array = json_object_get(room, "scope");
-		if (!room_array) {
+		scope_array = json_object_get(room, "scope");
+		if (!scope_array) {
 			dbi_result_free(result);
 			return -1;
 		}
 
-		if (og_dbi_scope_get_computer(dbi, room_array, room_id)) {
+		if (og_dbi_scope_get_computers_from_room(dbi, scope_array,
+							 query, room_id)) {
+			dbi_result_free(result);
+			return -1;
+		}
+
+		if (og_dbi_scope_get_computer_from_room(dbi, scope_array,
+							query, room_id)) {
 			dbi_result_free(result);
 			return -1;
 		}
@@ -3347,11 +3474,133 @@ static int og_dbi_scope_get_room(struct og_dbi *dbi, json_t *array,
 	return 0;
 }
 
+static int og_dbi_scope_get_room_from_group(const struct og_dbi *dbi,
+					    json_t *array,
+					    char *query,
+					    const uint32_t group_id)
+{
+	int ret = snprintf(query, OG_QUERY_MAXLEN,
+			   "SELECT idaula, nombreaula "
+			   "FROM aulas WHERE grupoid=%d", group_id);
+	if (ret <= 0 || ret >= OG_QUERY_MAXLEN)
+		return -1;
+
+	return og_dbi_scope_get_room(dbi, array, query);
+}
+
+static int og_dbi_scope_get_room_from_center(const struct og_dbi *dbi,
+					     json_t *array,
+					     char *query,
+					     const uint32_t center_id)
+{
+	int ret = snprintf(query, OG_QUERY_MAXLEN,
+			   "SELECT idaula, nombreaula "
+			   "FROM aulas WHERE idcentro=%d AND grupoid=0",
+			   center_id);
+	if (ret <= 0 || ret >= OG_QUERY_MAXLEN)
+		return -1;
+
+	return og_dbi_scope_get_room(dbi, array, query);
+}
+
+static int og_dbi_scope_get_group_from_group(const struct og_dbi *dbi,
+					     json_t *array,
+					     char *query,
+					     const uint32_t group_id);
+
+static int og_dbi_scope_get_group(const struct og_dbi *dbi,
+				  json_t *array,
+				  char *query)
+{
+	const char *msglog, *group_name;
+	json_t *group, *scope_array;
+	dbi_result result;
+	uint32_t group_id;
+
+	result = dbi_conn_queryf(dbi->conn, query);
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		return -1;
+	}
+
+	while (dbi_result_next_row(result)) {
+		group_id = dbi_result_get_uint(result, "idgrupo");
+		group_name = dbi_result_get_string(result, "nombregrupo");
+
+		group = json_object();
+		if (!group) {
+			dbi_result_free(result);
+			return -1;
+		}
+
+		json_object_set_new(group, "name", json_string(group_name));
+		json_object_set_new(group, "type", json_string("folder"));
+		json_object_set_new(group, "id", json_integer(group_id));
+		json_object_set_new(group, "scope", json_array());
+		json_array_append(array, group);
+		json_decref(group);
+
+		scope_array = json_object_get(group, "scope");
+		if (!scope_array) {
+			dbi_result_free(result);
+			return -1;
+		}
+
+		if (og_dbi_scope_get_group_from_group(dbi, scope_array, query,
+						      group_id)) {
+			dbi_result_free(result);
+			return -1;
+		}
+
+		if (og_dbi_scope_get_room_from_group(dbi, scope_array, query,
+						     group_id)) {
+			dbi_result_free(result);
+			return -1;
+		}
+	}
+	dbi_result_free(result);
+
+	return 0;
+}
+
+static int og_dbi_scope_get_group_from_group(const struct og_dbi *dbi,
+					      json_t *array,
+					      char *query,
+					      const uint32_t group_id)
+{
+	int ret = snprintf(query, OG_QUERY_MAXLEN,
+			   "SELECT idgrupo, nombregrupo "
+			   "FROM grupos WHERE grupoid=%d", group_id);
+	if (ret <= 0 || ret >= OG_QUERY_MAXLEN)
+		return -1;
+
+	return og_dbi_scope_get_group(dbi, array, query);
+}
+
+static int og_dbi_scope_get_group_from_center(const struct og_dbi *dbi,
+					      json_t *array,
+					      char *query,
+					      const uint32_t center_id)
+{
+	int group_type_room = 2;
+	int ret = snprintf(query, OG_QUERY_MAXLEN,
+			   "SELECT idgrupo, nombregrupo "
+			   "FROM grupos "
+			   "WHERE idcentro=%d AND grupoid=0 AND tipo=%d",
+			   center_id, group_type_room);
+	if (ret <= 0 || ret >= OG_QUERY_MAXLEN)
+		return -1;
+
+	return og_dbi_scope_get_group(dbi, array, query);
+}
+
 static int og_dbi_scope_get(struct og_dbi *dbi, json_t *array)
 {
-	char center_name[OG_DB_CENTER_NAME_MAXLEN + 1] = {};
-	json_t *center, *array_room;
-	const char *msglog;
+	const char *msglog, *center_name;
+	json_t *center, *scope_array;
+	char query[OG_QUERY_MAXLEN];
 	uint32_t center_id;
 	dbi_result result;
 
@@ -3366,9 +3615,7 @@ static int og_dbi_scope_get(struct og_dbi *dbi, json_t *array)
 
 	while (dbi_result_next_row(result)) {
 		center_id = dbi_result_get_uint(result, "idcentro");
-		strncpy(center_name,
-			dbi_result_get_string(result, "nombrecentro"),
-			OG_DB_CENTER_NAME_MAXLEN);
+		center_name = dbi_result_get_string(result, "nombrecentro");
 
 		center = json_object();
 		if (!center) {
@@ -3376,8 +3623,8 @@ static int og_dbi_scope_get(struct og_dbi *dbi, json_t *array)
 			return -1;
 		}
 
-		array_room = json_array();
-		if (!array_room) {
+		scope_array = json_array();
+		if (!scope_array) {
 			dbi_result_free(result);
 			json_decref(center);
 			return -1;
@@ -3386,11 +3633,18 @@ static int og_dbi_scope_get(struct og_dbi *dbi, json_t *array)
 		json_object_set_new(center, "name", json_string(center_name));
 		json_object_set_new(center, "type", json_string("center"));
 		json_object_set_new(center, "id", json_integer(center_id));
-		json_object_set_new(center, "scope", array_room);
+		json_object_set_new(center, "scope", scope_array);
 		json_array_append(array, center);
 		json_decref(center);
 
-		if (og_dbi_scope_get_room(dbi, array_room, center_id)) {
+		if (og_dbi_scope_get_group_from_center(dbi, scope_array, query,
+						       center_id)) {
+			dbi_result_free(result);
+			return -1;
+		}
+
+		if (og_dbi_scope_get_room_from_center(dbi, scope_array, query,
+						      center_id)) {
 			dbi_result_free(result);
 			return -1;
 		}
