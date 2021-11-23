@@ -89,7 +89,7 @@ bool wake_up_broadcast(int sd, struct sockaddr_in *client,
 	return wake_up_send(sd, client, msg, &addr.sin_addr);
 }
 
-#define OG_WOL_CLIENT_TIMEOUT	60
+#define OG_WOL_CLIENT_TIMEOUT	60.
 
 static void og_client_wol_timer_cb(struct ev_loop *loop, ev_timer *timer,
                                    int events)
@@ -100,8 +100,7 @@ static void og_client_wol_timer_cb(struct ev_loop *loop, ev_timer *timer,
 
 	syslog(LOG_ERR, "timeout WakeOnLAN request for client %s\n",
 	       inet_ntoa(cli_wol->addr));
-	list_del(&cli_wol->list);
-	free(cli_wol);
+	og_client_wol_destroy(cli_wol);
 }
 
 struct og_client_wol *og_client_wol_create(const struct in_addr *addr)
@@ -114,9 +113,9 @@ struct og_client_wol *og_client_wol_create(const struct in_addr *addr)
 
 	cli_wol->addr = *addr;
 
-	ev_timer_init(&cli_wol->timer, og_client_wol_timer_cb,
-		      OG_WOL_CLIENT_TIMEOUT, 0.);
-	ev_timer_start(og_loop, &cli_wol->timer);
+	ev_init(&cli_wol->timer, og_client_wol_timer_cb);
+	cli_wol->timer.repeat = OG_WOL_CLIENT_TIMEOUT;
+	ev_timer_again(og_loop, &cli_wol->timer);
 
 	return cli_wol;
 }

@@ -29,6 +29,7 @@
 static void og_client_release(struct ev_loop *loop, struct og_client *cli)
 {
 	list_del(&cli->list);
+	ev_timer_stop(loop, &cli->timer);
 	ev_io_stop(loop, &cli->io);
 	close(cli->io.fd);
 	free(cli);
@@ -147,7 +148,6 @@ static void og_client_read_cb(struct ev_loop *loop, struct ev_io *io, int events
 	}
 	return;
 close:
-	ev_timer_stop(loop, &cli->timer);
 	og_client_release(loop, cli);
 }
 
@@ -264,7 +264,6 @@ static void og_agent_read_cb(struct ev_loop *loop, struct ev_io *io, int events)
 	}
 	return;
 close:
-	ev_timer_stop(loop, &cli->timer);
 	og_client_release(loop, cli);
 }
 
@@ -302,10 +301,10 @@ static void og_agent_send_refresh(struct og_client *cli)
 }
 
 /* Shut down connection if there is no complete message after 10 seconds. */
-#define OG_CLIENT_TIMEOUT       10
+#define OG_CLIENT_TIMEOUT       10.
 
 /* Agent client operation might take longer, shut down after 30 seconds. */
-#define OG_AGENT_CLIENT_TIMEOUT 30
+#define OG_AGENT_CLIENT_TIMEOUT 30.
 
 #define OG_TCP_KEEPALIVE_IDLE	60
 #define OG_TCP_KEEPALIVE_INTL	30
@@ -356,14 +355,13 @@ void og_server_accept_cb(struct ev_loop *loop, struct ev_io *io, int events)
 	}
 
 	ev_io_start(loop, &cli->io);
-	if (io->fd == socket_agent_rest) {
-		ev_timer_init(&cli->timer, og_client_timer_cb,
-			      OG_AGENT_CLIENT_TIMEOUT, 0.);
-	} else {
-		ev_timer_init(&cli->timer, og_client_timer_cb,
-			      OG_CLIENT_TIMEOUT, 0.);
-	}
-	ev_timer_start(loop, &cli->timer);
+	ev_init(&cli->timer, og_client_timer_cb);
+	if (io->fd == socket_agent_rest)
+		cli->timer.repeat = OG_AGENT_CLIENT_TIMEOUT;
+	else
+		cli->timer.repeat = OG_CLIENT_TIMEOUT;
+
+	ev_timer_again(loop, &cli->timer);
 	og_client_add(cli);
 
 	if (io->fd == socket_agent_rest) {
