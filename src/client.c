@@ -24,6 +24,67 @@
 #include <jansson.h>
 #include <time.h>
 
+static int og_status_session_toggle(struct og_client *cli)
+{
+	switch (cli->status) {
+	case OG_CLIENT_STATUS_LINUX:
+		cli->status = OG_CLIENT_STATUS_LINUX_SESSION;
+		break;
+	case OG_CLIENT_STATUS_LINUX_SESSION:
+		cli->status = OG_CLIENT_STATUS_LINUX;
+		break;
+	case OG_CLIENT_STATUS_WIN:
+		cli->status = OG_CLIENT_STATUS_WIN_SESSION;
+		break;
+	case OG_CLIENT_STATUS_WIN_SESSION:
+		cli->status = OG_CLIENT_STATUS_WIN;
+		break;
+	default:
+		syslog(LOG_ERR, "%s:%d: invalid toggle session for status %d\n",
+		       __FILE__, __LINE__, cli->status);
+		return -1;
+	}
+	return 0;
+}
+
+static int og_resp_early_hints(struct og_client *cli, json_t *data)
+{
+	const char *event, *action, *user;
+	const char *key;
+	json_t *value;
+	int err = 0;
+
+	if (json_typeof(data) != JSON_OBJECT)
+		return -1;
+
+	json_object_foreach(data, key, value) {
+		if (!strcmp(key, "event")) {
+			err = og_json_parse_string(value, &event);
+			if (err < 0)
+				return err;
+		} else if (!strcmp(key, "action")) {
+			err = og_json_parse_string(value, &action);
+			if (err < 0)
+				return err;
+		} else if (!strcmp(key, "user")) {
+			err = og_json_parse_string(value, &user);
+			if (err < 0)
+				return err;
+		}
+	}
+
+	syslog(LOG_INFO, "Received event %s %s %s\n", event, action, user);
+
+	if (strncmp(event, "session", strlen("session")))
+		return -1;
+
+	if (strncmp(action, "start", strlen("start")) &&
+	    strncmp(action, "stop", strlen("stop")))
+		return -1;
+
+	return og_status_session_toggle(cli);
+}
+
 static int og_resp_probe(struct og_client *cli, json_t *data)
 {
 	const char *status = NULL;
@@ -638,6 +699,9 @@ static int og_agent_http_response_code(const char *buf)
 	} else if (!strncmp(buf, "HTTP/1.0 503 Service Unavailable",
 			    strlen("HTTP/1.0 503 Service Unavailable"))) {
 		return 503;
+	} else if (!strncmp(buf, "HTTP/1.0 103 Early Hints",
+			    strlen("HTTP/1.0 103 Early Hints"))) {
+		return 103;
 	}
 
 	return -1;
@@ -653,6 +717,7 @@ int og_agent_state_process_response(struct og_client *cli)
 
 	code = og_agent_http_response_code(cli->buf);
 	switch (code) {
+	case 103:
 	case 200:
 		ret = 0;
 		success = true;
@@ -689,7 +754,7 @@ int og_agent_state_process_response(struct og_client *cli)
 		break;
 	}
 
-	if (code != 200) {
+	if (code != 200 && code != 103) {
 		og_dbi_update_action(cli->last_cmd_id, success);
 		cli->last_cmd_id = 0;
 		return ret;
@@ -709,6 +774,12 @@ int og_agent_state_process_response(struct og_client *cli)
 		syslog(LOG_ERR, "%s:%d: malformed json line %d: %s\n",
 		       __FILE__, __LINE__, json_err.line, json_err.text);
 		return -1;
+	}
+
+	if (code == 103) {
+		err = og_resp_early_hints(cli, root);
+		json_decref(root);
+		return err;
 	}
 
 	switch (cli->last_cmd) {

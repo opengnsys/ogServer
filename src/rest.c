@@ -126,8 +126,12 @@ static const char *og_client_status(const struct og_client *cli)
 		return "VDI";
 	case OG_CLIENT_STATUS_LINUX:
 		return "LINUX";
+	case OG_CLIENT_STATUS_LINUX_SESSION:
+		return "LINUX-SESSION";
 	case OG_CLIENT_STATUS_WIN:
 		return "WIN";
+	case OG_CLIENT_STATUS_WIN_SESSION:
+		return "WIN-SESSION";
 	default:
 		return "OFF";
 	}
