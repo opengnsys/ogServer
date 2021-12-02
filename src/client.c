@@ -24,23 +24,34 @@
 #include <jansson.h>
 #include <time.h>
 
-static int og_status_session_toggle(struct og_client *cli)
+static int og_status_session_start(struct og_client *cli)
 {
 	switch (cli->status) {
 	case OG_CLIENT_STATUS_LINUX:
 		cli->status = OG_CLIENT_STATUS_LINUX_SESSION;
 		break;
-	case OG_CLIENT_STATUS_LINUX_SESSION:
-		cli->status = OG_CLIENT_STATUS_LINUX;
-		break;
 	case OG_CLIENT_STATUS_WIN:
 		cli->status = OG_CLIENT_STATUS_WIN_SESSION;
 		break;
+	default:
+		syslog(LOG_ERR, "%s:%d: invalid session start for status %d\n",
+		       __FILE__, __LINE__, cli->status);
+		return -1;
+	}
+	return 0;
+}
+
+static int og_status_session_stop(struct og_client *cli)
+{
+	switch (cli->status) {
 	case OG_CLIENT_STATUS_WIN_SESSION:
 		cli->status = OG_CLIENT_STATUS_WIN;
 		break;
+	case OG_CLIENT_STATUS_LINUX_SESSION:
+		cli->status = OG_CLIENT_STATUS_LINUX;
+		break;
 	default:
-		syslog(LOG_ERR, "%s:%d: invalid toggle session for status %d\n",
+		syslog(LOG_ERR, "%s:%d: invalid session stop for status %d\n",
 		       __FILE__, __LINE__, cli->status);
 		return -1;
 	}
@@ -78,11 +89,13 @@ static int og_resp_early_hints(struct og_client *cli, json_t *data)
 	if (strncmp(event, "session", strlen("session")))
 		return -1;
 
-	if (strncmp(action, "start", strlen("start")) &&
-	    strncmp(action, "stop", strlen("stop")))
-		return -1;
+	if (!strncmp(action, "start", strlen("start")))
+		return og_status_session_start(cli);
+	if (!strncmp(action, "stop", strlen("stop")))
+		return og_status_session_stop(cli);
 
-	return og_status_session_toggle(cli);
+	syslog(LOG_ERR, "Invalid action for event %s %s %s\n", event, action, user);
+	return -1;
 }
 
 static int og_resp_probe(struct og_client *cli, json_t *data)
