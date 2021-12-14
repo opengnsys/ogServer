@@ -5296,6 +5296,107 @@ err_return:
 	return -1;
 }
 
+static int og_dbi_update_oglive(struct og_dbi *dbi, const char *mac,
+				const char * oglive)
+{
+	const char *msglog;
+	dbi_result result;
+
+	result = dbi_conn_queryf(dbi->conn,
+				 "UPDATE ordenadores SET oglivedir='%s' "
+				 "WHERE mac='%s'",
+				 oglive, mac);
+
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		return -1;
+	}
+
+	dbi_result_free(result);
+	return 0;
+}
+
+static int og_cmd_oglive_set(json_t *element, struct og_msg_params *params)
+{
+	char ips_str[(OG_DB_IP_MAXLEN + 1) * OG_CLIENTS_MAX + 1] = {};
+	const char legacy_default_oglive_str[] = "ogLive";
+	const char *oglive_str, *mac, *mode_str;
+	const char template_name[] = "ogLive";
+	int ips_str_len = 0;
+	struct og_dbi *dbi;
+	uint64_t flags = 0;
+	dbi_result result;
+	const char *key;
+	json_t *value;
+	int err = 0;
+	int i;
+
+	json_object_foreach(element, key, value) {
+		if (!strcmp(key, "clients")) {
+			err = og_json_parse_clients(value, params);
+		} else if (!strcmp(key, "name")) {
+			err = og_json_parse_string(value, &oglive_str);
+			flags |= OG_REST_PARAM_NAME;
+		} else {
+			err = -1;
+		}
+
+		if (err < 0)
+			return err;
+	}
+
+	if (!og_flags_validate(flags, OG_REST_PARAM_NAME) ||
+	    !og_msg_params_validate(params, OG_REST_PARAM_ADDR))
+		return -1;
+
+	if (!strcmp(oglive_str, "default"))
+		oglive_str = legacy_default_oglive_str;
+
+	for (i = 0; i < params->ips_array_len; ++i) {
+		ips_str_len += snprintf(ips_str + ips_str_len,
+					sizeof(ips_str) - ips_str_len,
+					"'%s',", params->ips_array[i]);
+	}
+	ips_str[ips_str_len - 1] = '\0';
+
+	dbi = og_dbi_open(&ogconfig.db);
+	if (!dbi) {
+		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
+		       __func__, __LINE__);
+		return -1;
+	}
+
+	result = dbi_conn_queryf(dbi->conn,
+				 "SELECT mac, arranque FROM ordenadores "
+				 "WHERE ip IN (%s)", ips_str);
+
+	while (dbi_result_next_row(result)) {
+		mac = dbi_result_get_string(result, "mac");
+		mode_str = dbi_result_get_string(result, "arranque");
+		err = og_dbi_update_oglive(dbi, mac, oglive_str);
+		if (err != 0) {
+			syslog(LOG_ERR, "failed to change db oglive (%s:%d)\n",
+			       __func__, __LINE__);
+			dbi_result_free(result);
+			og_dbi_close(dbi);
+			return -1;
+		}
+		err = og_set_client_mode(dbi, mac, mode_str, template_name);
+		if (err != 0) {
+			dbi_result_free(result);
+			og_dbi_close(dbi);
+			return -1;
+		}
+	}
+
+	dbi_result_free(result);
+	og_dbi_close(dbi);
+
+	return 0;
+}
+
 static int og_client_method_not_found(struct og_client *cli)
 {
 	/* To meet RFC 7231, this function MUST generate an Allow header field
@@ -5790,6 +5891,19 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 		}
 
 		err = og_cmd_oglive_list(buf_reply);
+	} else if (!strncmp(cmd, "oglive/set", strlen("oglive/set"))) {
+		if (method != OG_METHOD_POST) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
+
+		if (!root) {
+			syslog(LOG_ERR,
+			       "command oglive set with no payload\n");
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
+		}
+		err = og_cmd_oglive_set(root, &params);
 	} else if (!strncmp(cmd, "center/add",
 			    strlen("center/add"))) {
 		if (method != OG_METHOD_POST) {
