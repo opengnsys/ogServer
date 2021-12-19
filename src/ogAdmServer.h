@@ -23,8 +23,7 @@
 struct og_dbi;
 
 bool actualizaConfiguracion(struct og_dbi *,char* ,int);
-bool Levanta(char**, char**, char**, int, char*);
-bool WakeUp(int,char*,char*,char*,char*);
+bool WakeUp(int, const char *, const char *, const char *, const char *);
 bool actualizaCreacionImagen(struct og_dbi *,char*,char*,char*,char*,char*,char*);
 bool actualizaRestauracionImagen(struct og_dbi *,char*,char*,char*,char*,char*);
 bool actualizaHardware(struct og_dbi *dbi, char* ,char*,char*,char*);

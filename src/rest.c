@@ -520,6 +520,7 @@ static int og_cmd_wol(json_t *element, struct og_msg_params *params)
 	dbi_result result;
 	const char *key;
 	json_t *value;
+	int sd;
 
 	if (json_typeof(element) != JSON_OBJECT)
 		return -1;
@@ -580,12 +581,19 @@ static int og_cmd_wol(json_t *element, struct og_msg_params *params)
 	if (i == 0)
 		return 0;
 
+	sd = wol_socket_open();
+	if (sd < 0) {
+		syslog(LOG_ERR, "cannot open wol socket (%s:%d)\n",
+		       __func__, __LINE__);
+		goto err_free_params;
+	}
+
 	for (i = 0; i < params->ips_array_len; i++) {
 		if (og_client_find(params->ips_array[i]))
 			continue;
 
 		if (inet_aton(params->ips_array[i], &addr) < 0)
-			return -1;
+			goto err_out;
 
 		cli_wol = og_client_wol_find(&addr);
 		if (cli_wol) {
@@ -595,16 +603,20 @@ static int og_cmd_wol(json_t *element, struct og_msg_params *params)
 
 		cli_wol = og_client_wol_create(&addr);
 		if (!cli_wol)
-			return -1;
+			goto err_out;
 
 		list_add_tail(&cli_wol->list, &client_wol_list);
+
+		if (!WakeUp(sd, params->ips_array[i], params->mac_array[i],
+			    params->netmask_array[i], params->wol_type)) {
+			syslog(LOG_ERR, "Failed to send wol packet to %s\n",
+			       params->ips_array[i]);
+			continue;
+		}
 	}
-
-	if (!Levanta((char **)params->ips_array, (char **)params->mac_array,
-		     (char **)params->netmask_array, i,
-		     (char *)params->wol_type))
-		return -1;
-
+err_out:
+	close(sd);
+err_free_params:
 	for (i = 0; i < params->ips_array_len; ++i) {
 		free((void *)params->ips_array[i]);
 		free((void *)params->mac_array[i]);
@@ -3156,6 +3168,7 @@ void og_schedule_run(unsigned int task_id, unsigned int schedule_id,
 	struct og_cmd *cmd, *next;
 	struct og_dbi *dbi;
 	unsigned int i;
+	int sd;
 
 	dbi = og_dbi_open(&ogconfig.db);
 	if (!dbi) {
@@ -3190,23 +3203,38 @@ void og_schedule_run(unsigned int task_id, unsigned int schedule_id,
 			duplicated = false;
 	}
 
+	sd = wol_socket_open();
+	if (sd < 0) {
+		syslog(LOG_ERR, "cannot open wol socket (%s:%d)\n",
+		       __func__, __LINE__);
+		goto err_out;
+	}
+
 	list_for_each_entry_safe(cmd, next, &cmd_list, list) {
 		if (cmd->type != OG_CMD_WOL)
 			continue;
 
-		if (Levanta((char **)cmd->params.ips_array,
-			    (char **)cmd->params.mac_array,
-			    (char **)cmd->params.netmask_array,
-			    cmd->params.ips_array_len,
-			    (char *)cmd->params.wol_type))
+		for (i = 0; i < cmd->params.ips_array_len; i++) {
+			if (!WakeUp(sd, cmd->params.ips_array[i],
+				    cmd->params.mac_array[i],
+				    cmd->params.netmask_array[i],
+				    cmd->params.wol_type)) {
+				syslog(LOG_ERR, "Failed to send wol packet to %s\n",
+				       params.ips_array[i]);
+				continue;
+			}
 			og_dbi_update_action(cmd->id, true);
+		}
 
 		list_del(&cmd->list);
 		og_cmd_free(cmd);
 	}
 
+	close(sd);
+
 	og_send_request(OG_METHOD_GET, OG_CMD_RUN_SCHEDULE, &params, NULL);
 
+err_out:
 	for (i = 0; i < params.ips_array_len; i++)
 		free((void *)params.ips_array[i]);
 }

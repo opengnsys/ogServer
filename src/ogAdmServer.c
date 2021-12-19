@@ -271,40 +271,6 @@ int checkDato(struct og_dbi *dbi, char *dato, const char *tabla,
 	return (identificador);
 }
 
-// ________________________________________________________________________________________________________
-// Función: Levanta
-//
-//	Descripción:
-//		Enciende ordenadores a través de la red cuyas macs se pasan como parámetro
-//	Parámetros:
-//		- iph: Cadena de direcciones ip separadas por ";"
-//		- mac: Cadena de direcciones mac separadas por ";"
-//		- mar: Método de arranque (1=Broadcast, 2=Unicast)
-//	Devuelve:
-//		true: Si el proceso es correcto
-//		false: En caso de ocurrir algún error
-// ________________________________________________________________________________________________________
-
-bool Levanta(char *ptrIP[], char *ptrMacs[], char *ptrNetmasks[], int lon,
-	     char *mar)
-{
-	int i, s;
-
-	s = wol_socket_open();
-	if (s < 0)
-		return false;
-
-	for (i = 0; i < lon; i++) {
-		if (!WakeUp(s, ptrIP[i], ptrMacs[i], ptrNetmasks[i], mar)) {
-			syslog(LOG_ERR, "problem sending magic packet\n");
-			close(s);
-			return false;
-		}
-	}
-	close(s);
-	return true;
-}
-
 enum wol_delivery_type {
 	OG_WOL_BROADCAST = 1,
 	OG_WOL_UNICAST = 2
@@ -325,7 +291,7 @@ enum wol_delivery_type {
 //		false: En caso de ocurrir algún error
 //_____________________________________________________________________________________________________________
 //
-bool WakeUp(int s, char* iph, char *mac, char *netmask, char *mar)
+bool WakeUp(int s, const char *iph, const char *mac, const char *netmask, const char *mar)
 {
 	struct in_addr addr, netmask_addr, broadcast_addr ={};
 	unsigned int macaddr[OG_WOL_MACADDR_LEN];
