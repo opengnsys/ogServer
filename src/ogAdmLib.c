@@ -60,7 +60,7 @@ char* escaparCadena(char *cadena)
 
 	buffer = (char*) calloc(1, strlen(cadena)*2); // Toma memoria para el buffer de conversión
 	if (buffer == NULL) { // No hay memoria suficiente para el buffer
-		return (FALSE);
+		return NULL;
 	}
 
 	c=b=0;
