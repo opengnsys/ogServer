@@ -205,6 +205,7 @@ static void og_agent_deliver_pending_cmd(struct og_client *cli)
 		return;
 	}
 
+	json_incref(cmd->json);
 	og_send_request(cmd->method, cmd->type, &cmd->params, cmd->json);
 	cli->last_cmd_id = cmd->id;
 
