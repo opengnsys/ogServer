@@ -34,8 +34,6 @@
 
 #define ANNOREF 2009 // Año de referencia base
 
-#define PUERTO_WAKEUP	9 // Puerto wake up
-
 #define MAXHARDWARE 128 //	 Máximos elementos hardware a detectar
 #define MAXSOFTWARE 8096 //	 Máximos elementos software a detectar
 

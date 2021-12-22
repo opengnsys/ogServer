@@ -43,8 +43,8 @@ int wol_socket_open(void)
 	return s;
 }
 
-bool wake_up_send(int sd, struct sockaddr_in *client,
-		  const struct wol_msg *msg, const struct in_addr *addr)
+static int wake_up_send(int sd, struct sockaddr_in *client,
+			const struct wol_msg *msg, const struct in_addr *addr)
 {
 	int ret;
 
@@ -54,21 +54,21 @@ bool wake_up_send(int sd, struct sockaddr_in *client,
 		     (struct sockaddr *)client, sizeof(*client));
 	if (ret < 0) {
 		syslog(LOG_ERR, "failed to send wol\n");
-		return false;
+		return -1;
 	}
 
-	return true;
+	return 0;
 }
 
-bool wake_up_broadcast(int sd, struct sockaddr_in *client,
-		       const struct wol_msg *msg)
+static int wake_up_broadcast(int sd, struct sockaddr_in *client,
+			     const struct wol_msg *msg)
 {
 	struct sockaddr_in *broadcast_addr, addr = {};
 	struct ifaddrs *ifaddr, *ifa;
 
 	if (getifaddrs(&ifaddr) < 0) {
 		syslog(LOG_ERR, "cannot get list of addresses\n");
-		return false;
+		return -1;
 	}
 
 	addr.sin_addr.s_addr = htonl(INADDR_BROADCAST);
@@ -87,6 +87,52 @@ bool wake_up_broadcast(int sd, struct sockaddr_in *client,
 	freeifaddrs(ifaddr);
 
 	return wake_up_send(sd, client, msg, &addr.sin_addr);
+}
+
+enum wol_delivery_type {
+	OG_WOL_BROADCAST = 1,
+	OG_WOL_UNICAST = 2
+};
+
+int wake_up(int s, const struct in_addr *addr, const struct in_addr *netmask,
+	    const char *mac, uint32_t wol_delivery_type)
+{
+	uint32_t mac_addr_u32[OG_WOL_MACADDR_LEN];
+	uint8_t mac_addr[OG_WOL_MACADDR_LEN];
+	struct sockaddr_in dest = {
+		.sin_family = AF_INET,
+		.sin_port = htons(OG_WOL_PORT),
+	};
+	struct in_addr broadcast_addr;
+	struct wol_msg msg = {};
+	int ret, i;
+
+	memset(msg.wol_sequence_ff, 0xff, OG_WOL_SEQUENCE);
+	sscanf(mac, "%02x%02x%02x%02x%02x%02x",
+	       &mac_addr_u32[0], &mac_addr_u32[1], &mac_addr_u32[2],
+	       &mac_addr_u32[3], &mac_addr_u32[4], &mac_addr_u32[5]);
+
+	for (i = 0; i < OG_WOL_MACADDR_LEN; i++)
+		mac_addr[i] = mac_addr_u32[i];
+	for (i = 0; i < OG_WOL_REPEAT; i++)
+		memcpy(&msg.mac_addr[i][0], mac_addr, OG_WOL_MACADDR_LEN);
+
+	switch (wol_delivery_type) {
+	case OG_WOL_BROADCAST:
+		ret = wake_up_broadcast(s, &dest, &msg);
+		broadcast_addr.s_addr = addr->s_addr | ~netmask->s_addr;
+		ret |= wake_up_send(s, &dest, &msg, &broadcast_addr);
+		break;
+	case OG_WOL_UNICAST:
+		ret = wake_up_send(s, &dest, &msg, addr);
+		break;
+	default:
+		syslog(LOG_ERR, "unknown wol type\n");
+		ret = -1;
+		break;
+	}
+
+	return ret;
 }
 
 #define OG_WOL_CLIENT_TIMEOUT	60.

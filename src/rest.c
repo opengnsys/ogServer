@@ -512,8 +512,8 @@ static int og_cmd_wol(json_t *element, struct og_msg_params *params)
 {
 	char ips_str[(OG_DB_IP_MAXLEN + 1) * OG_CLIENTS_MAX + 1] = {};
 	struct og_client_wol *cli_wol;
+	struct in_addr addr, netmask;
 	int ips_str_len = 0;
-	struct in_addr addr;
 	const char *msglog;
 	struct og_dbi *dbi;
 	int err = 0, i = 0;
@@ -593,7 +593,7 @@ static int og_cmd_wol(json_t *element, struct og_msg_params *params)
 			continue;
 
 		if (inet_aton(params->ips_array[i], &addr) < 0)
-			goto err_out;
+			continue;
 
 		cli_wol = og_client_wol_find(&addr);
 		if (cli_wol) {
@@ -607,8 +607,11 @@ static int og_cmd_wol(json_t *element, struct og_msg_params *params)
 
 		list_add_tail(&cli_wol->list, &client_wol_list);
 
-		if (!WakeUp(sd, params->ips_array[i], params->mac_array[i],
-			    params->netmask_array[i], params->wol_type)) {
+		if (inet_aton(params->netmask_array[i], &netmask) < 0)
+			continue;
+
+		if (wake_up(sd, &addr, &netmask, params->mac_array[i],
+			    atoi(params->wol_type)) < 0) {
 			syslog(LOG_ERR, "Failed to send wol packet to %s\n",
 			       params->ips_array[i]);
 			continue;
@@ -3164,8 +3167,9 @@ void og_schedule_run(unsigned int task_id, unsigned int schedule_id,
 		     enum og_schedule_type type)
 {
 	struct og_msg_params params = {};
-	bool duplicated = false;
+	struct in_addr addr, netmask;
 	struct og_cmd *cmd, *next;
+	bool duplicated = false;
 	struct og_dbi *dbi;
 	unsigned int i;
 	int sd;
@@ -3215,10 +3219,14 @@ void og_schedule_run(unsigned int task_id, unsigned int schedule_id,
 			continue;
 
 		for (i = 0; i < cmd->params.ips_array_len; i++) {
-			if (!WakeUp(sd, cmd->params.ips_array[i],
+			if (inet_aton(cmd->params.ips_array[i], &addr) < 0)
+				continue;
+			if (inet_aton(cmd->params.netmask_array[i], &netmask) < 0)
+				continue;
+
+			if (wake_up(sd, &addr, &netmask,
 				    cmd->params.mac_array[i],
-				    cmd->params.netmask_array[i],
-				    cmd->params.wol_type)) {
+				    atoi(cmd->params.wol_type)) < 0) {
 				syslog(LOG_ERR, "Failed to send wol packet to %s\n",
 				       params.ips_array[i]);
 				continue;

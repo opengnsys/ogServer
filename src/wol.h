@@ -4,21 +4,20 @@
 #define OG_WOL_SEQUENCE		6
 #define OG_WOL_MACADDR_LEN	6
 #define OG_WOL_REPEAT		16
+#define OG_WOL_PORT		9
 
 #include "list.h"
 #include <ev.h>
 #include <stdbool.h>
 
 struct wol_msg {
-	char secuencia_FF[OG_WOL_SEQUENCE];
-	char macbin[OG_WOL_REPEAT][OG_WOL_MACADDR_LEN];
+	char wol_sequence_ff[OG_WOL_SEQUENCE];
+	char mac_addr[OG_WOL_REPEAT][OG_WOL_MACADDR_LEN];
 };
 
 int wol_socket_open(void);
-bool wake_up_send(int sd, struct sockaddr_in *client,
-		  const struct wol_msg *msg, const struct in_addr *addr);
-bool wake_up_broadcast(int sd, struct sockaddr_in *client,
-		       const struct wol_msg *msg);
+int wake_up(int s, const struct in_addr *addr, const struct in_addr *netmask,
+	    const char *mac, uint32_t wol_delivery_type);
 
 struct og_client_wol {
 	struct list_head	list;
