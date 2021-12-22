@@ -615,12 +615,12 @@ static int og_resp_image_restore(json_t *data, struct og_client *cli)
 	const char *partition = NULL;
 	const char *image_id = NULL;
 	const char *disk = NULL;
-	dbi_result query_result;
+	const char *msglog;
 	struct og_dbi *dbi;
+	dbi_result result;
 	const char *key;
 	json_t *value;
 	int err = 0;
-	bool res;
 
 	if (json_typeof(data) != JSON_OBJECT)
 		return -1;
@@ -649,24 +649,23 @@ static int og_resp_image_restore(json_t *data, struct og_client *cli)
 		return -1;
 	}
 
-	query_result = dbi_conn_queryf(dbi->conn,
-				       "SELECT idperfilsoft FROM imagenes "
-				       " WHERE idimagen='%s'",
-				       image_id);
-	if (!query_result) {
+	result = dbi_conn_queryf(dbi->conn,
+				 "SELECT idperfilsoft FROM imagenes "
+				 " WHERE idimagen='%s'", image_id);
+	if (!result) {
 		og_dbi_close(dbi);
 		syslog(LOG_ERR, "failed to query database\n");
 		return -1;
 	}
-	if (!dbi_result_next_row(query_result)) {
-		dbi_result_free(query_result);
+	if (!dbi_result_next_row(result)) {
+		dbi_result_free(result);
 		og_dbi_close(dbi);
 		syslog(LOG_ERR, "software profile does not exist in database\n");
 		return -1;
 	}
 	snprintf(img_legacy.software_id, sizeof(img_legacy.software_id),
-		 "%d", dbi_result_get_uint(query_result, "idperfilsoft"));
-	dbi_result_free(query_result);
+		 "%d", dbi_result_get_uint(result, "idperfilsoft"));
+	dbi_result_free(result);
 
 	err = og_dbi_get_computer_info(dbi, &computer, cli->addr.sin_addr);
 	if (err < 0) {
@@ -680,18 +679,24 @@ static int og_resp_image_restore(json_t *data, struct og_client *cli)
 	snprintf(img_legacy.disk, sizeof(img_legacy.disk), "%s", disk);
 	snprintf(soft_legacy.id, sizeof(soft_legacy.id), "%d", computer.id);
 
-	res = actualizaRestauracionImagen(dbi,
-					  img_legacy.image_id,
-					  img_legacy.disk,
-					  img_legacy.part,
-					  soft_legacy.id,
-					  img_legacy.software_id);
-	og_dbi_close(dbi);
-
-	if (!res) {
-		syslog(LOG_ERR, "Problem updating client configuration\n");
+	result = dbi_conn_queryf(dbi->conn,
+				 "UPDATE ordenadores_particiones"
+				 "   SET idimagen=%s, idperfilsoft=%s, fechadespliegue=NOW(),"
+				 "       revision=(SELECT revision FROM imagenes WHERE idimagen=%s),"
+				 "       idnombreso=IFNULL((SELECT idnombreso FROM perfilessoft WHERE idperfilsoft=%s),0)"
+				 " WHERE idordenador=%s AND numdisk=%s AND numpar=%s",
+				 img_legacy.image_id, img_legacy.software_id,
+				 img_legacy.image_id, img_legacy.software_id,
+				 soft_legacy.id, img_legacy.disk, img_legacy.part);
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR, "failed to update database (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		og_dbi_close(dbi);
 		return -1;
 	}
+	dbi_result_free(result);
+	og_dbi_close(dbi);
 
 	return 0;
 }

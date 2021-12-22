@@ -452,47 +452,6 @@ bool actualizaCreacionImagen(struct og_dbi *dbi, char *idi, char *dsk,
 }
 
 // ________________________________________________________________________________________________________
-// Función: actualizaRestauracionImagen
-//
-//	Descripción:
-//		Esta función actualiza la base de datos con el resultado de la restauración de una imagen
-//	Parámetros:
-//		- db: Objeto base de datos (ya operativo)
-//		- tbl: Objeto tabla
-//		- idi: Identificador de la imagen
-//		- dsk: Disco de donde se restauró
-//		- par: Partición de donde se restauró
-//		- ido: Identificador del cliente donde se restauró
-//		- ifs: Identificador del perfil software contenido	en la imagen
-//	Devuelve:
-//		true: Si el proceso es correcto
-//		false: En caso de ocurrir algún error
-// ________________________________________________________________________________________________________
-bool actualizaRestauracionImagen(struct og_dbi *dbi, char *idi,
-				 char *dsk, char *par, char *ido, char *ifs)
-{
-	const char *msglog;
-	dbi_result result;
-
-	/* Actualizar los datos de la imagen */
-	result = dbi_conn_queryf(dbi->conn,
-			"UPDATE ordenadores_particiones"
-			"   SET idimagen=%s, idperfilsoft=%s, fechadespliegue=NOW(),"
-			"       revision=(SELECT revision FROM imagenes WHERE idimagen=%s),"
-			"       idnombreso=IFNULL((SELECT idnombreso FROM perfilessoft WHERE idperfilsoft=%s),0)"
-			" WHERE idordenador=%s AND numdisk=%s AND numpar=%s", idi, ifs, idi, ifs, ido, dsk, par);
-
-	if (!result) {
-		dbi_conn_error(dbi->conn, &msglog);
-		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
-		       __func__, __LINE__, msglog);
-		return false;
-	}
-	dbi_result_free(result);
-
-	return true;
-}
-// ________________________________________________________________________________________________________
 // Función: actualizaHardware
 //
 //		Descripción:
