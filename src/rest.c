@@ -1546,6 +1546,7 @@ static int og_cmd_post_client_add(json_t *element,
 				 "  ip,"
 				 "  mac,"
 				 "  idaula,"
+				 "  grupoid,"
 				 "  idperfilhard,"
 				 "  idrepositorio,"
 				 "  mascara,"
@@ -1555,7 +1556,7 @@ static int og_cmd_post_client_add(json_t *element,
 				 "  oglivedir,"
 				 "  inremotepc,"
 				 "  maintenance"
-				 ") VALUES ('%s', '%s', '%s', '%s', %u, %u,"
+				 ") VALUES ('%s', '%s', '%s', '%s', %u, 0, %u,"
 				 "           %u, '%s', '%s', '%s', '%s',"
 				 "          '%s', %u, %u)",
 				 computer.name, computer.serial_number,
