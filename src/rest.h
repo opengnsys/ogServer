@@ -61,6 +61,7 @@ struct og_client {
 	unsigned int		last_cmd_id;
 	bool			autorun;
 	uint32_t		speed;
+	const char		*shell_output;
 };
 
 void og_client_add(struct og_client *cli);

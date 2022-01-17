@@ -32,6 +32,7 @@ static void og_client_release(struct ev_loop *loop, struct og_client *cli)
 	ev_timer_stop(loop, &cli->timer);
 	ev_io_stop(loop, &cli->io);
 	close(cli->io.fd);
+	free((void *)cli->shell_output);
 	free(cli);
 }
 

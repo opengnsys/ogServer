@@ -646,7 +646,6 @@ static int og_cmd_run_post(json_t *element, struct og_msg_params *params)
 {
 	json_t *value, *clients;
 	const char *key;
-	unsigned int i;
 	int err = 0;
 
 	if (json_typeof(element) != JSON_OBJECT)
@@ -674,20 +673,7 @@ static int og_cmd_run_post(json_t *element, struct og_msg_params *params)
 	clients = json_copy(element);
 	json_object_del(clients, "clients");
 
-	err = og_send_request(OG_METHOD_POST, OG_CMD_SHELL_RUN, params, clients);
-	if (err < 0)
-		return err;
-
-	for (i = 0; i < params->ips_array_len; i++) {
-		char filename[4096];
-		FILE *f;
-
-		sprintf(filename, "/tmp/_Seconsola_%s", params->ips_array[i]);
-		f = fopen(filename, "wt");
-		fclose(f);
-	}
-
-	return 0;
+	return og_send_request(OG_METHOD_POST, OG_CMD_SHELL_RUN, params, clients);
 }
 
 static int og_cmd_run_get(json_t *element, struct og_msg_params *params,
@@ -721,23 +707,11 @@ static int og_cmd_run_get(json_t *element, struct og_msg_params *params,
 
 	for (i = 0; i < params->ips_array_len; i++) {
 		json_t *object, *output, *addr;
-		char data[4096] = {};
-		char filename[4096];
-		int fd, numbytes;
+		struct og_client *cli;
 
-		sprintf(filename, "/tmp/_Seconsola_%s", params->ips_array[i]);
-
-		fd = open(filename, O_RDONLY);
-		if (!fd)
-			return -1;
-
-		numbytes = read(fd, data, sizeof(data));
-		if (numbytes < 0) {
-			close(fd);
-			return -1;
-		}
-		data[sizeof(data) - 1] = '\0';
-		close(fd);
+		cli = og_client_find(params->ips_array[i]);
+		if (!cli)
+			continue;
 
 		object = json_object();
 		if (!object) {
@@ -752,7 +726,7 @@ static int og_cmd_run_get(json_t *element, struct og_msg_params *params,
 		}
 		json_object_set_new(object, "addr", addr);
 
-		output = json_string(data);
+		output = json_string(cli->shell_output);
 		if (!output) {
 			json_decref(object);
 			json_decref(array);

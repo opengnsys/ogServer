@@ -135,11 +135,9 @@ static int og_resp_probe(struct og_client *cli, json_t *data)
 static int og_resp_shell_run(struct og_client *cli, json_t *data)
 {
 	const char *output = NULL;
-	char filename[4096];
 	const char *key;
 	json_t *value;
 	int err = -1;
-	FILE *file;
 
 	if (json_typeof(data) != JSON_OBJECT)
 		return -1;
@@ -158,16 +156,8 @@ static int og_resp_shell_run(struct og_client *cli, json_t *data)
 		return -1;
 	}
 
-	sprintf(filename, "/tmp/_Seconsola_%s", inet_ntoa(cli->addr.sin_addr));
-	file = fopen(filename, "wt");
-	if (!file) {
-		syslog(LOG_ERR, "cannot open file %s: %s\n",
-		       filename, strerror(errno));
-		return -1;
-	}
-
-	fprintf(file, "%s", output);
-	fclose(file);
+	free((void *)cli->shell_output);
+	cli->shell_output = strdup(output);
 
 	return 0;
 }
