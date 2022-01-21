@@ -344,11 +344,11 @@ void og_server_accept_cb(struct ev_loop *loop, struct ev_io *io, int events)
 	setsockopt(client_sd, IPPROTO_TCP, TCP_KEEPINTVL, &intl, sizeof(int));
 	setsockopt(client_sd, IPPROTO_TCP, TCP_KEEPCNT, &cnt, sizeof(int));
 
-	cli_wol = og_client_wol_find(&client_addr.sin_addr);
-	if (cli_wol)
-		og_client_wol_destroy(cli_wol);
-
 	if (agent) {
+		cli_wol = og_client_wol_find(&client_addr.sin_addr);
+		if (cli_wol)
+			og_client_wol_destroy(cli_wol);
+
 		cli = __og_client_find(&client_addr.sin_addr);
 		if (cli)
 			og_client_release(loop, cli);
