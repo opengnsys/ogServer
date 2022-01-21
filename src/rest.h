@@ -65,6 +65,7 @@ struct og_client {
 };
 
 void og_client_add(struct og_client *cli);
+struct og_client *__og_client_find(const struct in_addr *addr);
 
 static inline int og_client_socket(const struct og_client *cli)
 {

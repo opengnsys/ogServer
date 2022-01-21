@@ -86,9 +86,23 @@ void og_client_add(struct og_client *cli)
 	list_add(&cli->list, &client_list);
 }
 
-static struct og_client *og_client_find(const char *ip)
+struct og_client *__og_client_find(const struct in_addr *addr)
 {
 	struct og_client *client;
+
+	list_for_each_entry(client, &client_list, list) {
+		if (!client->agent)
+			continue;
+
+		if (client->addr.sin_addr.s_addr == addr->s_addr)
+			return client;
+	}
+
+	return NULL;
+}
+
+static struct og_client *og_client_find(const char *ip)
+{
 	struct in_addr addr;
 	int res;
 
@@ -98,13 +112,7 @@ static struct og_client *og_client_find(const char *ip)
 		return NULL;
 	}
 
-	list_for_each_entry(client, &client_list, list) {
-		if (client->addr.sin_addr.s_addr == addr.s_addr && client->agent) {
-			return client;
-		}
-	}
-
-	return NULL;
+	return __og_client_find(&addr);
 }
 
 static const char *og_client_status(const struct og_client *cli)

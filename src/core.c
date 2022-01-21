@@ -323,9 +323,15 @@ void og_server_accept_cb(struct ev_loop *loop, struct ev_io *io, int events)
 	struct og_client_wol *cli_wol;
 	struct og_client *cli;
 	int client_sd;
+	bool agent;
 
 	if (events & EV_ERROR)
 		return;
+
+	if (io->fd == socket_agent_rest)
+		agent = true;
+	else
+		agent = false;
 
 	client_sd = accept(io->fd, (struct sockaddr *)&client_addr, &addrlen);
 	if (client_sd < 0) {
@@ -342,6 +348,12 @@ void og_server_accept_cb(struct ev_loop *loop, struct ev_io *io, int events)
 	if (cli_wol)
 		og_client_wol_destroy(cli_wol);
 
+	if (agent) {
+		cli = __og_client_find(&client_addr.sin_addr);
+		if (cli)
+			og_client_release(loop, cli);
+	}
+
 	cli = (struct og_client *)calloc(1, sizeof(struct og_client));
 	if (!cli) {
 		close(client_sd);
@@ -349,7 +361,7 @@ void og_server_accept_cb(struct ev_loop *loop, struct ev_io *io, int events)
 	}
 	memcpy(&cli->addr, &client_addr, sizeof(client_addr));
 
-	if (io->fd == socket_agent_rest) {
+	if (agent) {
 		cli->agent = true;
 		ev_io_init(&cli->io, og_agent_read_cb, client_sd, EV_READ);
 	} else {
@@ -358,7 +370,7 @@ void og_server_accept_cb(struct ev_loop *loop, struct ev_io *io, int events)
 
 	ev_io_start(loop, &cli->io);
 	ev_init(&cli->timer, og_client_timer_cb);
-	if (io->fd == socket_agent_rest)
+	if (agent)
 		cli->timer.repeat = OG_AGENT_CLIENT_TIMEOUT;
 	else
 		cli->timer.repeat = OG_CLIENT_TIMEOUT;
@@ -366,9 +378,8 @@ void og_server_accept_cb(struct ev_loop *loop, struct ev_io *io, int events)
 	ev_timer_again(loop, &cli->timer);
 	og_client_add(cli);
 
-	if (io->fd == socket_agent_rest) {
+	if (agent)
 		og_agent_send_refresh(cli);
-	}
 }
 
 int og_socket_server_init(const char *port)
