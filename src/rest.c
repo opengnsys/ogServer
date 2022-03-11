@@ -30,6 +30,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sys/statvfs.h>
+#include <sys/sysinfo.h>
 
 struct ev_loop *og_loop;
 
@@ -5416,6 +5417,60 @@ static int og_cmd_oglive_set(json_t *element, struct og_msg_params *params)
 	return 0;
 }
 
+static int og_cmd_get_server_stats(char *buffer_reply)
+{
+	json_t *root, *time_obj, *memory, *swap;
+	struct og_buffer og_buffer = {
+		.data = buffer_reply
+	};
+	struct sysinfo stats;
+
+	sysinfo(&stats);
+
+	root = json_object();
+	if (!root)
+		return -1;
+	time_obj = json_object();
+	if (!time_obj) {
+		json_decref(root);
+		return -1;
+	}
+	memory = json_object();
+	if (!memory) {
+		json_decref(root);
+		json_decref(time_obj);
+		return -1;
+	}
+	swap = json_object();
+	if (!swap) {
+		json_decref(root);
+		json_decref(time_obj);
+		json_decref(memory);
+		return -1;
+	}
+
+	json_object_set_new(time_obj, "now", json_integer(time(NULL)));
+	json_object_set_new(time_obj, "boot", json_integer(stats.uptime));
+	json_object_set_new(root, "time", time_obj);
+
+	json_object_set_new(memory, "size", json_integer(stats.totalram));
+	json_object_set_new(memory, "free", json_integer(stats.freeram));
+	json_object_set_new(root, "memory", memory);
+
+	json_object_set_new(swap, "size", json_integer(stats.totalswap));
+	json_object_set_new(swap, "free", json_integer(stats.freeswap));
+	json_object_set_new(root, "swap", swap);
+
+	if (json_dump_callback(root, og_json_dump_clients, &og_buffer, 0)) {
+		json_decref(root);
+		return -1;
+	}
+
+	json_decref(root);
+
+	return 0;
+}
+
 static int og_client_method_not_found(struct og_client *cli)
 {
 	/* To meet RFC 7231, this function MUST generate an Allow header field
@@ -6049,6 +6104,13 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 			goto err_process_rest_payload;
 		}
 		err = og_cmd_post_task_add(root, &params);
+	} else if (!strncmp(cmd, "stats", strlen("stats"))) {
+		if (method != OG_METHOD_GET) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
+
+		err = og_cmd_get_server_stats(buf_reply);
 	} else {
 		syslog(LOG_ERR, "unknown command: %.32s ...\n", cmd);
 		err = og_client_not_found(cli);
