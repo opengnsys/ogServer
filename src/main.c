@@ -34,11 +34,15 @@ struct og_server_cfg ogconfig = {
 	},
 };
 
+time_t start_time;
+
 int main(int argc, char *argv[])
 {
 	char config_file[PATH_MAX + 1] = OG_SERVER_CFG_JSON;
 	struct ev_io ev_io_server_rest, ev_io_agent_rest;
 	int val;
+
+	start_time = time(NULL);
 
 	og_loop = ev_default_loop(0);
 

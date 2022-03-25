@@ -12,6 +12,7 @@
 #include "utils.h"
 #include "list.h"
 #include "rest.h"
+#include "core.h"
 #include "wol.h"
 #include "cfg.h"
 #include "schedule.h"
@@ -5424,6 +5425,7 @@ static int og_cmd_get_server_stats(char *buffer_reply)
 		.data = buffer_reply
 	};
 	struct sysinfo stats;
+	time_t now;
 
 	sysinfo(&stats);
 
@@ -5449,8 +5451,10 @@ static int og_cmd_get_server_stats(char *buffer_reply)
 		return -1;
 	}
 
-	json_object_set_new(time_obj, "now", json_integer(time(NULL)));
+	now = time(NULL);
+	json_object_set_new(time_obj, "now", json_integer(now));
 	json_object_set_new(time_obj, "boot", json_integer(stats.uptime));
+	json_object_set_new(time_obj, "start", json_integer(now - start_time));
 	json_object_set_new(root, "time", time_obj);
 
 	json_object_set_new(memory, "size", json_integer(stats.totalram));
