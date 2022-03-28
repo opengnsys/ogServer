@@ -1039,7 +1039,7 @@ static int og_change_db_mode(struct og_dbi *dbi, const char *mac,
 }
 
 static int og_set_client_mode(struct og_dbi *dbi, const char *mac,
-			      const char *mode, const char *template_name)
+			      const char *mode)
 {
 	char filename[PATH_MAX + 1] = "/tmp/mode_params_XXXXXX";
 	char cmd_params[16384] = {};
@@ -1069,9 +1069,8 @@ static int og_set_client_mode(struct og_dbi *dbi, const char *mac,
 	dbi_result_free(result);
 
 	snprintf(cmd_params, sizeof(cmd_params),
-		 "MODE_FILE='%s'\nMAC='%s'\nDATA='%s'\n"
-		 "MODE='PERM'\nTEMPLATE_NAME='%s'",
-		 mode, mac, params, template_name);
+		 "MODE_FILE='%s'\nMAC='%s'\nDATA='%s'\nMODE='PERM'",
+		 mode, mac, params);
 
 	fd = mkstemp(filename);
 	if (fd < 0) {
@@ -1118,10 +1117,6 @@ static int og_set_client_mode(struct og_dbi *dbi, const char *mac,
 static int og_cmd_post_modes(json_t *element, struct og_msg_params *params)
 {
 	char ips_str[(OG_DB_IP_MAXLEN + 1) * OG_CLIENTS_MAX + 1] = {};
-	char template_file_uefi[PATH_MAX + 1] = {};
-	char template_file[PATH_MAX + 1] = {};
-	char template_name[PATH_MAX + 1] = {};
-	char first_line[PATH_MAX + 1] = {};
 	const char *mode_str, *mac;
 	int ips_str_len = 0;
 	struct og_dbi *dbi;
@@ -1130,7 +1125,6 @@ static int og_cmd_post_modes(json_t *element, struct og_msg_params *params)
 	const char *key;
 	json_t *value;
 	int err = 0;
-	FILE *f;
 	int i;
 
 	json_object_foreach(element, key, value) {
@@ -1150,37 +1144,6 @@ static int og_cmd_post_modes(json_t *element, struct og_msg_params *params)
 	if (!og_flags_validate(flags, OG_REST_PARAM_MODE) ||
 	    !og_msg_params_validate(params, OG_REST_PARAM_ADDR))
 		return -1;
-
-	snprintf(template_file, sizeof(template_file), "%s/%s",
-		 OG_TFTP_TMPL_PATH, mode_str);
-	f = fopen(template_file, "r");
-	if (!f) {
-		syslog(LOG_WARNING, "cannot open file %s (%s:%d). Trying UEFI template instead.\n",
-		       template_file, __func__, __LINE__);
-
-		snprintf(template_file_uefi, sizeof(template_file_uefi), "%s/%s",
-			 OG_TFTP_TMPL_PATH_UEFI, mode_str);
-		f = fopen(template_file_uefi, "r");
-		if (!f) {
-			syslog(LOG_ERR, "cannot open file %s (%s:%d). No template found.\n",
-			       template_file_uefi, __func__, __LINE__);
-			return -1;
-		}
-	}
-
-	if (!fgets(first_line, sizeof(first_line), f)) {
-		fclose(f);
-		syslog(LOG_ERR, "cannot read file (%s:%d)\n",
-		       __func__, __LINE__);
-		return -1;
-	}
-
-	fclose(f);
-
-	if (sscanf(first_line, "##NO-TOCAR-ESTA-LINEA %s", template_name) != 1) {
-		syslog(LOG_ERR, "malformed template: %s", first_line);
-		return -1;
-	}
 
 	for (i = 0; i < params->ips_array_len; ++i) {
 		ips_str_len += snprintf(ips_str + ips_str_len,
@@ -1202,7 +1165,7 @@ static int og_cmd_post_modes(json_t *element, struct og_msg_params *params)
 
 	while (dbi_result_next_row(result)) {
 		mac = dbi_result_get_string(result, "mac");
-		err = og_set_client_mode(dbi, mac, mode_str, template_name);
+		err = og_set_client_mode(dbi, mac, mode_str);
 		if (err != 0) {
 			dbi_result_free(result);
 			og_dbi_close(dbi);
@@ -5344,7 +5307,6 @@ static int og_cmd_oglive_set(json_t *element, struct og_msg_params *params)
 	char ips_str[(OG_DB_IP_MAXLEN + 1) * OG_CLIENTS_MAX + 1] = {};
 	const char legacy_default_oglive_str[] = "ogLive";
 	const char *oglive_str, *mac, *mode_str;
-	const char template_name[] = "ogLive";
 	int ips_str_len = 0;
 	struct og_dbi *dbi;
 	uint64_t flags = 0;
@@ -5404,7 +5366,7 @@ static int og_cmd_oglive_set(json_t *element, struct og_msg_params *params)
 			og_dbi_close(dbi);
 			return -1;
 		}
-		err = og_set_client_mode(dbi, mac, mode_str, template_name);
+		err = og_set_client_mode(dbi, mac, mode_str);
 		if (err != 0) {
 			dbi_result_free(result);
 			og_dbi_close(dbi);
