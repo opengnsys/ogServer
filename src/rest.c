@@ -1523,6 +1523,14 @@ static int og_cmd_post_client_add(json_t *element,
 	}
 
 	dbi_result_free(result);
+
+	if (og_set_client_mode(dbi, computer.mac, computer.boot)) {
+		syslog(LOG_ERR, "failed to set client boot mode (%s:%d)\n",
+		       __func__, __LINE__);
+		og_dbi_close(dbi);
+		return -1;
+	}
+
 	og_dbi_close(dbi);
 	return 0;
 }
