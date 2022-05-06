@@ -355,6 +355,7 @@ static int og_resp_refresh(json_t *data, struct og_client *cli)
 	struct og_dbi *dbi;
 	const char *key;
 	unsigned int i;
+	uint32_t link;
 	json_t *value;
 	int err = 0;
 	bool res;
@@ -371,11 +372,16 @@ static int og_resp_refresh(json_t *data, struct og_client *cli)
 			err = og_json_parse_string(value, &serial_number);
 		} else if (!strcmp(key, "status")) {
 			err = og_json_parse_string(value, &status);
+		} else if (!strcmp(key, "link")) {
+			err = og_json_parse_uint(value, &link);
 		}
 
 		if (err < 0)
 			return err;
 	}
+
+	if (link)
+		cli->speed = link;
 
 	if (status) {
 		if (!strncmp(status, "LINUX", strlen("LINUX"))) {
