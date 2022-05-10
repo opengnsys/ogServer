@@ -42,6 +42,12 @@ enum og_cmd_type {
 	OG_CMD_MAX
 };
 
+enum og_cmd_result {
+        OG_UNKNOWN      = 0,
+        OG_FAILURE      = 1,
+        OG_SUCCESS      = 2,
+};
+
 #define OG_MSG_REQUEST_MAXLEN	131072
 
 struct og_client {
@@ -59,6 +65,7 @@ struct og_client {
 	enum og_client_status	status;
 	enum og_cmd_type	last_cmd;
 	unsigned int		last_cmd_id;
+	enum og_cmd_result	last_cmd_result;
 	bool			autorun;
 	uint32_t		speed;
 	const char		*shell_output;

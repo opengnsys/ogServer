@@ -768,6 +768,11 @@ int og_agent_state_process_response(struct og_client *cli)
 		break;
 	}
 
+	if (success)
+		cli->last_cmd_result = OG_SUCCESS;
+	else
+		cli->last_cmd_result = OG_FAILURE;
+
 	if (code != 200 && code != 103) {
 		og_dbi_update_action(cli->last_cmd_id, success);
 		cli->last_cmd_id = 0;
@@ -831,6 +836,7 @@ int og_agent_state_process_response(struct og_client *cli)
 	if (err < 0) {
 		err = 0;
 		success = false;
+		cli->last_cmd_result = OG_FAILURE;
 		/* ... cancel pending actions related to this task for this client here */
 	}
 

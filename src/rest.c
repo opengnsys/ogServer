@@ -387,9 +387,35 @@ static int og_json_dump_clients(const char *buffer, size_t size, void *data)
 	return 0;
 }
 
+static const char *og_cmd_result_str_array[] = {
+	[OG_UNKNOWN]    = "unknown",
+	[OG_FAILURE]    = "failure",
+	[OG_SUCCESS]    = "success",
+};
+
+static const char *og_cmd_result_str(const enum og_cmd_result result)
+{
+	if (result > OG_SUCCESS)
+		return "unknown";
+
+	return og_cmd_result_str_array[result];
+}
+
+static json_t *og_json_client_cmd_result(const enum og_cmd_result result)
+{
+	const char *result_str;
+	json_t *last_cmd;
+
+	last_cmd = json_object();
+	result_str = og_cmd_result_str(result);
+	json_object_set_new(last_cmd, "result", json_string(result_str));
+
+	return last_cmd;
+}
+
 static int og_json_client_append(json_t *array, struct og_client *client)
 {
-	json_t *addr, *state, *object;
+	json_t *addr, *state, *last_cmd, *object;
 
 	object = json_object();
 	if (!object)
@@ -408,6 +434,8 @@ static int og_json_client_append(json_t *array, struct og_client *client)
 	}
 	json_object_set_new(object, "state", state);
 	json_object_set_new(object, "speed", json_integer(client->speed));
+	last_cmd = og_json_client_cmd_result(client->last_cmd_result);
+	json_object_set_new(object, "last_cmd", last_cmd);
 	json_array_append_new(array, object);
 
 	return 0;
@@ -416,7 +444,7 @@ static int og_json_client_append(json_t *array, struct og_client *client)
 static int og_json_client_wol_append(json_t *array,
 				     struct og_client_wol *cli_wol)
 {
-	json_t *addr, *state, *object;
+	json_t *addr, *state, *last_cmd, *object;
 
 	object = json_object();
 	if (!object)
@@ -434,6 +462,8 @@ static int og_json_client_wol_append(json_t *array,
 		return -1;
 	}
 	json_object_set_new(object, "state", state);
+	last_cmd = og_json_client_cmd_result(OG_UNKNOWN);
+	json_object_set_new(object, "last_cmd", last_cmd);
 	json_array_append_new(array, object);
 
 	return 0;
