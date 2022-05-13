@@ -353,9 +353,9 @@ static int og_resp_refresh(json_t *data, struct og_client *cli)
 	const char *status = NULL;
 	char cfg[4096] = {};
 	struct og_dbi *dbi;
+	uint32_t link = 0;
 	const char *key;
 	unsigned int i;
-	uint32_t link;
 	json_t *value;
 	int err = 0;
 	bool res;
