@@ -1885,6 +1885,54 @@ static int og_cmd_get_software(json_t *element, struct og_msg_params *params,
 	return 0;
 }
 
+static const int og_cmd_get_repositories(char *buffer_reply)
+{
+	json_t *root, *repositories, *repository, *ip, *name;
+	struct og_buffer og_buffer = {
+		.data	= buffer_reply,
+	};
+	struct og_dbi *dbi;
+	dbi_result result;
+
+	dbi = og_dbi_open(&ogconfig.db);
+	if (!dbi) {
+		syslog(LOG_ERR, "cannot open connection database (%s:%d)\n",
+		       __func__, __LINE__);
+		return -1;
+	}
+
+	result = dbi_conn_queryf(dbi->conn,
+				 "SELECT ip, nombrerepositorio "
+				 "FROM repositorios");
+
+	repositories = json_array();
+
+	while (dbi_result_next_row(result)) {
+		repository = json_object();
+		ip = json_string(dbi_result_get_string(result, "ip"));
+		name = json_string(dbi_result_get_string(result,
+							 "nombrerepositorio"));
+		json_object_set_new(repository, "ip", ip);
+		json_object_set_new(repository, "name", name);
+		json_array_append_new(repositories, repository);
+	}
+
+	dbi_result_free(result);
+	og_dbi_close(dbi);
+
+	root = json_object();
+	json_object_set_new(root, "repositories", repositories);
+
+	if (json_dump_callback(root, og_json_dump_clients, &og_buffer, 0)) {
+		json_decref(root);
+		return -1;
+	}
+
+	json_decref(root);
+
+	return 0;
+}
+
 #define OG_IMAGE_TYPE_MAXLEN	4
 
 static int og_get_image_stats(const char *name,
@@ -5828,6 +5876,18 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 			err = og_cmd_software(root, &params);
 		else
 			err = og_cmd_get_software(root, &params, buf_reply);
+	} else if (!strncmp(cmd, "repositories", strlen("repositories"))) {
+		if (method != OG_METHOD_GET) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
+
+		if (root) {
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
+		}
+
+		err = og_cmd_get_repositories(buf_reply);
 	} else if (!strncmp(cmd, "images", strlen("images"))) {
 		if (method != OG_METHOD_GET) {
 			err = og_client_method_not_found(cli);
