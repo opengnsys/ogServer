@@ -2008,6 +2008,8 @@ static json_t *og_json_image_alloc(struct og_image *image)
 			    json_integer(image->type));
 	json_object_set_new(image_json, "id",
 			    json_integer(image->id));
+	json_object_set_new(image_json, "repo_ip",
+			    json_string(image->repo_ip));
 
 	return image_json;
 }
@@ -2047,10 +2049,12 @@ static int og_cmd_images(char *buffer_reply)
 				 "       i.clonator, i.compressor, "
 				 "       i.filesystem, i.datasize, "
 				 "       i.idperfilsoft, i.tipo, "
-				 "       i.idimagen "
+				 "       i.idimagen, r.ip "
 				 "FROM imagenes i "
 				 "LEFT JOIN ordenadores o "
-				 "ON i.idordenador = o.idordenador");
+				 "ON i.idordenador = o.idordenador "
+				 "JOIN repositorios r "
+				 "ON i.idrepositorio = r.idrepositorio");
 
 	while (dbi_result_next_row(result)) {
 		image = (struct og_image){0};
@@ -2058,6 +2062,8 @@ static int og_cmd_images(char *buffer_reply)
 		image.software_id = dbi_result_get_ulonglong(result, "idperfilsoft");
 		image.type = dbi_result_get_ulonglong(result, "tipo");
 		image.id = dbi_result_get_ulonglong(result, "idimagen");
+		snprintf(image.repo_ip, sizeof(image.repo_ip), "%s",
+			 dbi_result_get_string(result, "ip"));
 		snprintf(image.name, sizeof(image.name), "%s",
 			 dbi_result_get_string(result, "nombreca"));
 
