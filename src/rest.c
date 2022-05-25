@@ -2127,7 +2127,9 @@ int og_json_parse_create_image(json_t *element,
 							sizeof(params->image.name));
 			params->flags |= OG_REST_PARAM_NAME;
 		} else if (!strcmp(key, "repository")) {
-			err = og_json_parse_string(value, &params->repository);
+			err = og_json_parse_string_copy(value,
+							(char *)&params->image.repo_ip,
+							sizeof(params->image.repo_ip));
 			params->flags |= OG_REST_PARAM_REPO;
 		} else if (!strcmp(key, "clients")) {
 			err = og_json_parse_clients(value, params);

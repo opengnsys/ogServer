@@ -127,14 +127,55 @@ int og_dbi_get_computer_info(struct og_dbi *dbi, struct og_computer *computer,
 	return 0;
 }
 
+const int og_dbi_get_repository(const struct og_dbi *dbi, const char *repo_ip)
+{
+	const char *msglog;
+	dbi_result result;
+	int repo_id;
+
+	/* database can store duplicated repositories, limit query to return
+	 * only one */
+	result = dbi_conn_queryf(dbi->conn,
+				 "SELECT idrepositorio FROM repositorios "
+				 "WHERE ip = '%s' LIMIT 1",
+				 repo_ip);
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		return -1;
+	}
+
+	if (!dbi_result_next_row(result)) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR,
+		       "software profile does not exist in database (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		dbi_result_free(result);
+		return -1;
+	}
+
+	repo_id = dbi_result_get_int(result, "idrepositorio");
+	dbi_result_free(result);
+
+	return repo_id;
+}
+
 #define OG_UNASSIGNED_SW_ID 0
-#define OG_DEFAULT_REPO_ID 1
 #define OG_IMAGE_DEFAULT_TYPE 1 /* monolithic */
 
 int og_dbi_add_image(struct og_dbi *dbi, const struct og_image *image)
 {
 	const char *msglog;
 	dbi_result result;
+	int repo_id;
+
+	repo_id = og_dbi_get_repository(dbi, image->repo_ip);
+	if (repo_id < 0) {
+		syslog(LOG_ERR, "failed to get repository (%s:%d)\n",
+		       __func__, __LINE__);
+		return -1;
+	}
 
 	result = dbi_conn_queryf(dbi->conn,
 				 "SELECT nombreca FROM imagenes WHERE nombreca = '%s'",
@@ -167,7 +208,7 @@ int og_dbi_add_image(struct og_dbi *dbi, const struct og_image *image)
 				 "VALUES ('%s', '%s', %u, %lu, '', %u, %lu, %u, '')",
 				 image->name, image->description,
 				 OG_UNASSIGNED_SW_ID, image->center_id,
-				 image->group_id, OG_DEFAULT_REPO_ID,
+				 image->group_id, repo_id,
 				 OG_IMAGE_DEFAULT_TYPE);
 
 	if (!result) {
