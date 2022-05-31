@@ -206,6 +206,40 @@ static int og_dbi_schema_v3(struct og_dbi *dbi)
 	return 0;
 }
 
+static int og_dbi_schema_v4(struct og_dbi *dbi)
+{
+	const char *msglog;
+	dbi_result result;
+
+	syslog(LOG_DEBUG, "Adding identorno to ordenadores\n");
+	result = dbi_conn_query(dbi->conn,
+				"ALTER TABLE `ordenadores` "
+				"ADD `identorno` int(11) NOT NULL DEFAULT '1' "
+				"AFTER `idordenador`, "
+				"ADD CONSTRAINT `FK_entornos` "
+				"FOREIGN KEY (`identorno`) "
+				"REFERENCES `entornos` (`identorno`) "
+				"ON DELETE RESTRICT;");
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_INFO, "Error when adding identorno (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		return -1;
+	}
+	dbi_result_free(result);
+
+	result = dbi_conn_query(dbi->conn, "UPDATE version SET version = 4");
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_INFO, "Could not update version row (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		return -1;
+	}
+	dbi_result_free(result);
+
+	return 0;
+}
+
 static struct og_schema_version {
 	int	version;
 	int	(*update)(struct og_dbi *dbi);
@@ -213,6 +247,7 @@ static struct og_schema_version {
 	{	.version = 1,	.update = og_dbi_schema_v1	},
 	{	.version = 2,	.update = og_dbi_schema_v2	},
 	{	.version = 3,	.update = og_dbi_schema_v3	},
+	{	.version = 4,	.update = og_dbi_schema_v4	},
 	{	0,		NULL				},
 };
 

@@ -1082,7 +1082,35 @@ static int og_set_client_mode(struct og_dbi *dbi, const char *mac,
 	int fd;
 
 	result = dbi_conn_queryf(dbi->conn,
-		"SELECT ' LANG=%s', ' ip=', CONCAT_WS(':', ordenadores.ip, (SELECT (@serverip:=ipserveradm) FROM entornos LIMIT 1), aulas.router, aulas.netmask, ordenadores.nombreordenador, ordenadores.netiface, 'none'), ' group=', REPLACE(TRIM(aulas.nombreaula), ' ', '_'), ' ogrepo=', (@repoip:=IFNULL(repositorios.ip, '')), ' oglive=', @serverip, ' oglog=', @serverip, ' ogshare=', @serverip, ' oglivedir=', ordenadores.oglivedir, ' ogprof=', IF(ordenadores.idordenador=aulas.idordprofesor, 'true', 'false'), IF(perfileshard.descripcion<>'', CONCAT(' hardprofile=', REPLACE(TRIM(perfileshard.descripcion), ' ', '_')), ''), IF(aulas.ntp<>'', CONCAT(' ogntp=', aulas.ntp), ''), IF(aulas.dns<>'', CONCAT(' ogdns=', aulas.dns), ''), IF(aulas.proxy<>'', CONCAT(' ogproxy=', aulas.proxy), ''), IF(entidades.ogunit=1 AND NOT centros.directorio='', CONCAT(' ogunit=', centros.directorio), ''), CASE WHEN menus.resolucion IS NULL THEN '' WHEN menus.resolucion <= '999' THEN CONCAT(' vga=', menus.resolucion) WHEN menus.resolucion LIKE '%:%' THEN CONCAT(' video=', menus.resolucion) ELSE menus.resolucion END FROM ordenadores JOIN aulas USING(idaula) JOIN centros USING(idcentro) JOIN entidades USING(identidad) LEFT JOIN repositorios USING(idrepositorio) LEFT JOIN perfileshard USING(idperfilhard) LEFT JOIN menus USING(idmenu) WHERE ordenadores.mac='%s'", getenv("LANG"), mac);
+		"SELECT ' LANG=%s', "
+		"' ip=', CONCAT_WS(':', ordenadores.ip, (@serverip:=entornos.ipserveradm), aulas.router, aulas.netmask, ordenadores.nombreordenador, ordenadores.netiface, 'none'), "
+		"' group=', REPLACE(TRIM(aulas.nombreaula), ' ', '_'), "
+		"' ogrepo=', (@repoip:=IFNULL(repositorios.ip, '')), "
+		"' oglive=', @serverip, "
+		"' oglog=', @serverip, "
+		"' ogshare=', @serverip, "
+		"' oglivedir=', ordenadores.oglivedir, "
+		"' ogprof=', IF(ordenadores.idordenador=aulas.idordprofesor, 'true', 'false'), "
+		"IF(perfileshard.descripcion<>'', CONCAT(' hardprofile=', REPLACE(TRIM(perfileshard.descripcion), ' ', '_')), ''), "
+		"IF(aulas.ntp<>'', CONCAT(' ogntp=', aulas.ntp), ''), "
+		"IF(aulas.dns<>'', CONCAT(' ogdns=', aulas.dns), ''), "
+		"IF(aulas.proxy<>'', CONCAT(' ogproxy=', aulas.proxy), ''), "
+		"IF(entidades.ogunit=1 AND NOT centros.directorio='', CONCAT(' ogunit=', centros.directorio), ''), "
+		"CASE WHEN menus.resolucion IS NULL THEN '' "
+		"WHEN menus.resolucion <= '999' THEN CONCAT(' vga=', menus.resolucion) "
+		"WHEN menus.resolucion LIKE '%:%' THEN CONCAT(' video=', menus.resolucion) "
+		"ELSE menus.resolucion END "
+
+		"FROM ordenadores "
+		"JOIN aulas USING(idaula) "
+		"JOIN centros USING(idcentro) "
+		"JOIN entidades USING(identidad) "
+		"JOIN entornos USING(identorno) "
+		"LEFT JOIN repositorios USING(idrepositorio) "
+		"LEFT JOIN perfileshard USING(idperfilhard) "
+		"LEFT JOIN menus USING(idmenu) "
+
+		"WHERE ordenadores.mac='%s'", getenv("LANG"), mac);
 
 	if (dbi_result_get_numrows(result) != 1) {
 		dbi_conn_error(dbi->conn, &msglog);
