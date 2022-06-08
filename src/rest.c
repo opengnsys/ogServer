@@ -4992,6 +4992,59 @@ static int og_cmd_post_task_add(json_t *element,
 	return err;
 }
 
+static int og_cmd_post_repository_add(json_t *element,
+				      struct og_msg_params *params)
+{
+	struct og_repository repo = {};
+	const char *key, *msglog;
+	struct og_dbi *dbi;
+	dbi_result result;
+	json_t *value;
+	int err = 0;
+
+	json_object_foreach(element, key, value) {
+		if (!strcmp(key, "name")) {
+			err = og_json_parse_string(value, &repo.name);
+			params->flags |= OG_REST_PARAM_NAME;
+		} else if (!strcmp(key, "ip")) {
+			err = og_json_parse_string(value, &repo.ip);
+			params->flags |= OG_REST_PARAM_ADDR;
+		}
+
+		if (err < 0)
+			return err;
+	}
+
+	if (!og_msg_params_validate(params, OG_REST_PARAM_NAME |
+					    OG_REST_PARAM_ADDR))
+		return -1;
+
+	dbi = og_dbi_open(&ogconfig.db);
+	if (!dbi) {
+		syslog(LOG_ERR, "cannot open conection database (%s:%d)\n",
+		       __func__, __LINE__);
+		return -1;
+	}
+
+	result = dbi_conn_queryf(dbi->conn,
+				 "INSERT INTO repositorios("
+				 "nombrerepositorio, ip) VALUES ('%s', '%s')",
+				 repo.name, repo.ip);
+
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR,
+		       "failed to add repository to database (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		og_dbi_close(dbi);
+		return -1;
+	}
+	dbi_result_free(result);
+	og_dbi_close(dbi);
+
+	return err;
+}
+
 static int og_cmd_post_room_add(json_t *element,
 				struct og_msg_params *params)
 {
@@ -5936,6 +5989,19 @@ int og_client_state_process_payload_rest(struct og_client *cli)
 		}
 
 		err = og_cmd_get_repositories(buf_reply);
+	} else if (!strncmp(cmd, "repository/add", strlen("repository/add"))) {
+		if (method != OG_METHOD_POST) {
+			err = og_client_method_not_found(cli);
+			goto err_process_rest_payload;
+		}
+
+		if (!root) {
+			syslog(LOG_ERR,
+			       "command repository add with no payload\n");
+			err = og_client_bad_request(cli);
+			goto err_process_rest_payload;
+		}
+		err = og_cmd_post_repository_add(root, &params);
 	} else if (!strncmp(cmd, "images", strlen("images"))) {
 		if (method != OG_METHOD_GET) {
 			err = og_client_method_not_found(cli);

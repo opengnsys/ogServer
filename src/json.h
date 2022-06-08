@@ -131,4 +131,9 @@ struct og_procedure {
 
 int og_json_parse_procedure(json_t *element, struct og_procedure *proc);
 
+struct og_repository {
+	const char	*name;
+	const char	*ip;
+};
+
 #endif
