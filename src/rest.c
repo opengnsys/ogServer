@@ -1915,7 +1915,7 @@ static int og_cmd_get_software(json_t *element, struct og_msg_params *params,
 
 static const int og_cmd_get_repositories(char *buffer_reply)
 {
-	json_t *root, *repositories, *repository, *ip, *name;
+	json_t *root, *repositories, *repository, *id, *ip, *name;
 	struct og_buffer og_buffer = {
 		.data	= buffer_reply,
 	};
@@ -1930,16 +1930,19 @@ static const int og_cmd_get_repositories(char *buffer_reply)
 	}
 
 	result = dbi_conn_queryf(dbi->conn,
-				 "SELECT ip, nombrerepositorio "
+				 "SELECT idrepositorio, ip, nombrerepositorio "
 				 "FROM repositorios");
 
 	repositories = json_array();
 
 	while (dbi_result_next_row(result)) {
 		repository = json_object();
+		id = json_integer(dbi_result_get_ulonglong(result,
+							   "idrepositorio"));
 		ip = json_string(dbi_result_get_string(result, "ip"));
 		name = json_string(dbi_result_get_string(result,
 							 "nombrerepositorio"));
+		json_object_set_new(repository, "id", id);
 		json_object_set_new(repository, "ip", ip);
 		json_object_set_new(repository, "name", name);
 		json_array_append_new(repositories, repository);
