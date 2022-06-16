@@ -2154,10 +2154,8 @@ int og_json_parse_create_image(json_t *element,
 							(char *)&params->image.name,
 							sizeof(params->image.name));
 			params->flags |= OG_REST_PARAM_NAME;
-		} else if (!strcmp(key, "repository")) {
-			err = og_json_parse_string_copy(value,
-							(char *)&params->image.repo_ip,
-							sizeof(params->image.repo_ip));
+		} else if (!strcmp(key, "repository_id")) {
+			err = og_json_parse_uint64(value, &params->image.repo_id);
 			params->flags |= OG_REST_PARAM_REPO;
 		} else if (!strcmp(key, "clients")) {
 			err = og_json_parse_clients(value, params);
@@ -2186,6 +2184,7 @@ int og_json_parse_create_image(json_t *element,
 
 static int og_cmd_create_image(json_t *element, struct og_msg_params *params)
 {
+	char repository_ip[OG_DB_IP_MAXLEN + 1];
 	char new_image_id[OG_DB_INT_MAXLEN + 1];
 	struct og_dbi *dbi;
 	json_t *clients;
@@ -2200,25 +2199,30 @@ static int og_cmd_create_image(json_t *element, struct og_msg_params *params)
 					    OG_REST_PARAM_PARTITION |
 					    OG_REST_PARAM_CODE |
 					    OG_REST_PARAM_ID |
-					    OG_REST_PARAM_NAME |
-					    OG_REST_PARAM_REPO))
+					    OG_REST_PARAM_NAME))
 		return -1;
+
+	dbi = og_dbi_open(&ogconfig.db);
+	if (!dbi) {
+		syslog(LOG_ERR,
+		       "cannot open connection database (%s:%d)\n",
+		       __func__, __LINE__);
+		return -1;
+	}
 
 	/* If there is a description, this means the image is not in the DB. */
 	if (params->image.description[0]) {
-		dbi = og_dbi_open(&ogconfig.db);
-		if (!dbi) {
-			syslog(LOG_ERR,
-			       "cannot open connection database (%s:%d)\n",
-			       __func__, __LINE__);
+		if (!og_msg_params_validate(params, OG_REST_PARAM_REPO)) {
+			og_dbi_close(dbi);
 			return -1;
 		}
 
 		err = og_dbi_add_image(dbi, &params->image);
 
-		og_dbi_close(dbi);
-		if (err < 0)
+		if (err < 0) {
+			og_dbi_close(dbi);
 			return err;
+		}
 
 		snprintf(new_image_id, sizeof(new_image_id), "%u", err);
 		params->id = new_image_id;
@@ -2226,6 +2230,13 @@ static int og_cmd_create_image(json_t *element, struct og_msg_params *params)
 
 	clients = json_copy(element);
 	json_object_del(clients, "clients");
+
+	err = og_dbi_get_repository_ip(dbi, atoll(params->id), repository_ip);
+	og_dbi_close(dbi);
+	if (err < 0)
+		return err;
+
+	json_object_set_new(clients ,"repository", json_string(repository_ip));
 
 	return og_send_request(OG_METHOD_POST, OG_CMD_IMAGE_CREATE, params,
 			       clients);

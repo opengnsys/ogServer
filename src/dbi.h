@@ -58,6 +58,7 @@ struct og_image {
 	uint64_t center_id;
 	uint64_t datasize;
 	uint64_t group_id;
+	uint64_t repo_id;
 	uint64_t type;
 	uint64_t id;
 	struct stat image_stats;
@@ -109,5 +110,8 @@ int og_dbi_get_computer_info(struct og_dbi *dbi, struct og_computer *computer,
 int og_dbi_add_image(struct og_dbi *dbi, const struct og_image *image);
 
 int og_dbi_schema_update(void);
+
+int og_dbi_get_repository_ip(const struct og_dbi *dbi, const uint64_t image_id,
+			     char *repository_ip);
 
 #endif

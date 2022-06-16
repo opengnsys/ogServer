@@ -127,40 +127,6 @@ int og_dbi_get_computer_info(struct og_dbi *dbi, struct og_computer *computer,
 	return 0;
 }
 
-const int og_dbi_get_repository(const struct og_dbi *dbi, const char *repo_ip)
-{
-	const char *msglog;
-	dbi_result result;
-	int repo_id;
-
-	/* database can store duplicated repositories, limit query to return
-	 * only one */
-	result = dbi_conn_queryf(dbi->conn,
-				 "SELECT idrepositorio FROM repositorios "
-				 "WHERE ip = '%s' LIMIT 1",
-				 repo_ip);
-	if (!result) {
-		dbi_conn_error(dbi->conn, &msglog);
-		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
-		       __func__, __LINE__, msglog);
-		return -1;
-	}
-
-	if (!dbi_result_next_row(result)) {
-		dbi_conn_error(dbi->conn, &msglog);
-		syslog(LOG_ERR,
-		       "software profile does not exist in database (%s:%d) %s\n",
-		       __func__, __LINE__, msglog);
-		dbi_result_free(result);
-		return -1;
-	}
-
-	repo_id = dbi_result_get_int(result, "idrepositorio");
-	dbi_result_free(result);
-
-	return repo_id;
-}
-
 #define OG_UNASSIGNED_SW_ID 0
 #define OG_IMAGE_DEFAULT_TYPE 1 /* monolithic */
 
@@ -168,14 +134,6 @@ int og_dbi_add_image(struct og_dbi *dbi, const struct og_image *image)
 {
 	const char *msglog;
 	dbi_result result;
-	int repo_id;
-
-	repo_id = og_dbi_get_repository(dbi, image->repo_ip);
-	if (repo_id < 0) {
-		syslog(LOG_ERR, "failed to get repository (%s:%d)\n",
-		       __func__, __LINE__);
-		return -1;
-	}
 
 	result = dbi_conn_queryf(dbi->conn,
 				 "SELECT nombreca FROM imagenes WHERE nombreca = '%s'",
@@ -208,7 +166,7 @@ int og_dbi_add_image(struct og_dbi *dbi, const struct og_image *image)
 				 "VALUES ('%s', '%s', %u, %lu, '', %u, %lu, %u, '')",
 				 image->name, image->description,
 				 OG_UNASSIGNED_SW_ID, image->center_id,
-				 image->group_id, repo_id,
+				 image->group_id, image->repo_id,
 				 OG_IMAGE_DEFAULT_TYPE);
 
 	if (!result) {
@@ -220,4 +178,39 @@ int og_dbi_add_image(struct og_dbi *dbi, const struct og_image *image)
 
 	dbi_result_free(result);
 	return dbi_conn_sequence_last(dbi->conn, NULL);
+}
+
+int og_dbi_get_repository_ip(const struct og_dbi *dbi, const uint64_t image_id,
+			     char *repository_ip)
+{
+	const char *msglog, *dbi_repository_ip;
+	dbi_result result;
+
+	result = dbi_conn_queryf(dbi->conn,
+				 "SELECT r.ip FROM imagenes i "
+				 "JOIN repositorios r USING (idrepositorio) "
+				 "WHERE i.idimagen = %lu",
+				 image_id);
+	if (!result) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR, "failed to query database (%s:%d) %s\n",
+		       __func__, __LINE__, msglog);
+		return -1;
+	}
+
+	if (!dbi_result_next_row(result)) {
+		dbi_conn_error(dbi->conn, &msglog);
+		syslog(LOG_ERR,
+		      "image with id %lu has no repository (%s:%d) %s\n",
+		      image_id, __func__, __LINE__, msglog);
+		dbi_result_free(result);
+		return -1;
+	}
+
+	dbi_repository_ip = dbi_result_get_string(result, "ip");
+	snprintf(repository_ip, OG_DB_IP_MAXLEN + 1, "%s", dbi_repository_ip);
+
+	dbi_result_free(result);
+
+	return 0;
 }
