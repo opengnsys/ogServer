@@ -53,7 +53,6 @@ struct og_image_legacy {
 struct og_image {
 	char name[OG_DB_IMAGE_NAME_MAXLEN + 1];
 	char description[OG_DB_IMAGE_DESCRIPTION_MAXLEN + 1];
-	char repo_ip[OG_DB_IP_MAXLEN + 1];
 	uint64_t software_id;
 	uint64_t center_id;
 	uint64_t datasize;
