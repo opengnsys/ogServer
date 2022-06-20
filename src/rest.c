@@ -2223,6 +2223,7 @@ static int og_cmd_create_image(json_t *element, struct og_msg_params *params)
 
 		snprintf(new_image_id, sizeof(new_image_id), "%u", err);
 		params->id = new_image_id;
+		json_object_set_new(element, "id", json_string(params->id));
 	}
 
 	clients = json_copy(element);
