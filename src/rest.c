@@ -2095,9 +2095,7 @@ static int og_cmd_images(char *buffer_reply)
 		snprintf(image.name, sizeof(image.name), "%s",
 			 dbi_result_get_string(result, "nombreca"));
 
-		if (og_get_image_stats(image.name, &image.image_stats)) {
-			continue;
-		}
+		og_get_image_stats(image.name, &image.image_stats);
 
 		image_json = og_json_image_alloc(&image);
 		if (!image_json) {
