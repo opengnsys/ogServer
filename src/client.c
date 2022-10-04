@@ -24,14 +24,47 @@
 #include <jansson.h>
 #include <time.h>
 
-static int og_status_session_start(struct og_client *cli)
+#define OG_LEGACY_OGAGENT_LOG_FILE "/opt/opengnsys/log/ogagent.log"
+#define OG_CLIENT_SESSION_EVENT_LOGIN "logged in"
+#define OG_CLIENT_SESSION_EVENT_LOGOUT "logged out"
+#define OG_CLIENT_SESSION_OS_LINUX "Linux"
+#define OG_CLIENT_SESSION_OS_WINDOWS "Windows"
+#define OG_CLIENT_SESSION_TIMEDATE_LEN 20
+
+static void og_status_session_log(const struct og_client *cli,
+				  const char *type, const char* user,
+				  const char *os)
+{
+	char date[OG_CLIENT_SESSION_TIMEDATE_LEN];
+	char client_ip[INET_ADDRSTRLEN];
+	time_t now;
+	FILE *fp;
+
+	time(&now);
+	strftime(date, OG_CLIENT_SESSION_TIMEDATE_LEN, "%FT%T", gmtime(&now));
+
+	inet_ntop(AF_INET, &(cli->addr.sin_addr), client_ip, INET_ADDRSTRLEN);
+
+	fp = fopen(OG_LEGACY_OGAGENT_LOG_FILE, "a");
+	if (fp) {
+		fprintf(fp, "%s: User %s: ip=%s, user=%s, lang=en, os=%s:%s.\n",
+			date, type, client_ip, user, os, os);
+		fclose(fp);
+	}
+}
+
+static int og_status_session_start(struct og_client *cli, const char *user)
 {
 	switch (cli->status) {
 	case OG_CLIENT_STATUS_LINUX:
 		cli->status = OG_CLIENT_STATUS_LINUX_SESSION;
+		og_status_session_log(cli, OG_CLIENT_SESSION_EVENT_LOGIN, user,
+				      OG_CLIENT_SESSION_OS_LINUX);
 		break;
 	case OG_CLIENT_STATUS_WIN:
 		cli->status = OG_CLIENT_STATUS_WIN_SESSION;
+		og_status_session_log(cli, OG_CLIENT_SESSION_EVENT_LOGIN, user,
+				      OG_CLIENT_SESSION_OS_WINDOWS);
 		break;
 	default:
 		syslog(LOG_ERR, "%s:%d: invalid session start for status %d\n",
@@ -41,14 +74,18 @@ static int og_status_session_start(struct og_client *cli)
 	return 0;
 }
 
-static int og_status_session_stop(struct og_client *cli)
+static int og_status_session_stop(struct og_client *cli, const char *user)
 {
 	switch (cli->status) {
 	case OG_CLIENT_STATUS_WIN_SESSION:
 		cli->status = OG_CLIENT_STATUS_WIN;
+		og_status_session_log(cli, OG_CLIENT_SESSION_EVENT_LOGOUT, user,
+				      OG_CLIENT_SESSION_OS_WINDOWS);
 		break;
 	case OG_CLIENT_STATUS_LINUX_SESSION:
 		cli->status = OG_CLIENT_STATUS_LINUX;
+		og_status_session_log(cli, OG_CLIENT_SESSION_EVENT_LOGOUT, user,
+				      OG_CLIENT_SESSION_OS_LINUX);
 		break;
 	default:
 		syslog(LOG_ERR, "%s:%d: invalid session stop for status %d\n",
@@ -90,9 +127,9 @@ static int og_resp_early_hints(struct og_client *cli, json_t *data)
 		return -1;
 
 	if (!strncmp(action, "start", strlen("start")))
-		return og_status_session_start(cli);
+		return og_status_session_start(cli, user);
 	if (!strncmp(action, "stop", strlen("stop")))
-		return og_status_session_stop(cli);
+		return og_status_session_stop(cli, user);
 
 	syslog(LOG_ERR, "Invalid action for event %s %s %s\n", event, action, user);
 	return -1;
